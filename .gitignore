@@ -1,0 +1,15 @@
+*.egg-info
+*.mo
+*.pyc
+.settings/
+var/
+htmlcov/
+.coverage
+*.log
+output.xml
+*.swp
+dist/
+lib/
+node_modules/
+.env
+package.json
