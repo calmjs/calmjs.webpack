@@ -60,6 +60,9 @@ setup(
         ],
     },
     entry_points={
+        'calmjs.runtime': [
+            'webpack = calmjs.webpack.runtime:default',
+        ],
     },
     package_json=package_json,
     calmjs_module_registry=['calmjs.module'],
