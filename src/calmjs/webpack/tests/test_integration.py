@@ -560,7 +560,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             contents[:42], '(function webpackUniversalModuleDefinition')
         # Note that this test may be fragile and specific to webpack
         # versions.
-        self.assertEqual(len(contents), 3499)
+        self.assertEqual(len(contents), 3348)
 
     def test_runtime_cli_compile_explicit_registry_site(self):
         utils.stub_stdouts(self)

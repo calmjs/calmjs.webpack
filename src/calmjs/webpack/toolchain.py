@@ -28,10 +28,18 @@ from .exc import WebpackExitError
 
 logger = logging.getLogger(__name__)
 
+# The spec key for storing the base webpack configuration.
+WEBPACK_CONFIG = 'webpack_config'
+# The key for the default module name, use as the webpack library name
+WEBPACK_DEFAULT_MODULE_NAME = 'webpack_default_module_name'
+
+# other private values
+
 _PLATFORM_SPECIFIC_RUNTIME = {
     'win32': 'webpack.cmd',
 }
 _DEFAULT_RUNTIME = 'webpack'
+_DEFAULT_MODULE_NAME = '__calmjs__'
 
 
 # TODO figure out how to deal with chunking configuration
@@ -51,27 +59,25 @@ module.exports.plugins = [
 
 # TODO also figure out whether or not/how to best allow the __calmjs__
 # be additionally applied.
+# XXX most direct way is to manipulate window.__calmjs__, however this
+# should be checked to be the right way.  Also this assumes the defaults
+# have been used.
 _WEBPACK_CALMJS_MODULE_TEMPLATE = """'use strict';
-exports.__calmjs__ = {
+exports.modules = {
 %s
 };
 
 exports.require = function(modules, f) {
     if (modules.map) {
         f.apply(null, modules.map(function(m) {
-            return exports.__calmjs__[m];
+            return exports.modules[m];
         }));
     }
     else {
         // assuming the synchronous version
-        return exports.__calmjs__[modules];
+        return exports.modules[modules];
     }
 };
-"""
-
-# Or should that be done here?
-_WEBPACK_CALMJS_MAIN_MODULE = """'use strict';
-exports.require = require("__calmjs__").require;
 """
 
 
@@ -148,6 +154,12 @@ class WebpackToolchain(Toolchain):
         spec[EXPORT_TARGET] = self.join_cwd(spec[EXPORT_TARGET])
         spec[CONFIG_JS_FILES] = [spec['webpack_config_js']]
 
+        if WEBPACK_DEFAULT_MODULE_NAME not in spec:
+            spec[WEBPACK_DEFAULT_MODULE_NAME] = _DEFAULT_MODULE_NAME
+
+        logger.debug(
+            'webpack.output.library = %r', spec[WEBPACK_DEFAULT_MODULE_NAME])
+
         if not isdir(dirname(spec[EXPORT_TARGET])):
             raise WebpackRuntimeError(
                 "'%s' will not be writable" % EXPORT_TARGET)
@@ -178,7 +190,8 @@ class WebpackToolchain(Toolchain):
             if '!' not in m  # lazily filter out loader modules
         ]
 
-        export_module_path = join(spec[BUILD_DIR], '__calmjs__.js')
+        export_module_path = join(
+            spec[BUILD_DIR], spec[WEBPACK_DEFAULT_MODULE_NAME] + '.js')
         with open(export_module_path, 'w') as fd:
             fd.write(_WEBPACK_CALMJS_MODULE_TEMPLATE % '\n'.join(exported))
         return export_module_path
@@ -196,22 +209,15 @@ class WebpackToolchain(Toolchain):
                 'path': dirname(spec[EXPORT_TARGET]),
                 'filename': basename(spec[EXPORT_TARGET]),
                 'libraryTarget': 'umd',  # XXX magic,
-                'library': '__calmjs__',  # XXX magic,
+                'library': spec[WEBPACK_DEFAULT_MODULE_NAME],
                 # TODO determine publicPath
             },
             'resolve': {},
         }
 
-        webpack_config['entry'] = main_entry_point = join(
-            spec[BUILD_DIR], '__main__.js')
-
-        with open(main_entry_point, 'w') as fd:
-            fd.write(_WEBPACK_CALMJS_MAIN_MODULE)
-
-        calmjs_module_path = self.generate_lookup_module(spec)
-
+        webpack_config['entry'] = self.generate_lookup_module(spec)
         webpack_config['resolve']['alias'] = alias = {
-            '__calmjs__': calmjs_module_path,
+            spec[WEBPACK_DEFAULT_MODULE_NAME]: webpack_config['entry'],
         }
         # generate the aliases - yes, we include the bundled sources to
         # be explicit as there are cases where an alternative bundle may
@@ -232,6 +238,9 @@ class WebpackToolchain(Toolchain):
         with open(spec['webpack_config_js'], 'w') as fd:
             fd.write(_WEBPACK_CONFIG_TEMPLATE % json.dumps(
                 webpack_config, indent=4))
+
+        # record the webpack config to the spec
+        spec[WEBPACK_CONFIG] = webpack_config
 
     def _find_node_modules(self):
         # TODO merge with upstream, or have upstream provide one by

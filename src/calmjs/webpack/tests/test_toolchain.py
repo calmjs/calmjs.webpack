@@ -124,7 +124,6 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack.assemble(spec)
 
         # TODO verify contents
-        self.assertTrue(exists(join(tmpdir, '__main__.js')))
         self.assertTrue(exists(join(tmpdir, '__calmjs__.js')))
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
@@ -143,7 +142,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertEqual(config_js['resolve']['alias'], {
             '__calmjs__': join(tmpdir, '__calmjs__.js'),
         })
-        self.assertEqual(config_js['entry'], join(tmpdir, '__main__.js'))
+        self.assertEqual(config_js['entry'], join(tmpdir, '__calmjs__.js'))
 
     def test_prepare_assemble(self):
         tmpdir = utils.mkdtemp(self)
@@ -189,9 +188,10 @@ class ToolchainUnitTestCase(unittest.TestCase):
         with open(join(tmpdir, 'config.js')) as fd:
             # strip off the header and footer
             config_js = json.loads(''.join(fd.readlines()[5:-6]))
+        self.assertEqual(config_js, spec['webpack_config'])
 
         with open(config_js['entry']) as fd:
-            self.assertIn('require("__calmjs__")', fd.read())
+            self.assertIn("require('example/module')", fd.read())
 
         self.maxDiff = None
         self.assertEqual(config_js['resolve']['alias'], {
