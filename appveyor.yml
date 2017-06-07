@@ -1,0 +1,34 @@
+environment:
+  matrix:
+    - PYTHON: "C:\\Python27"
+      nodejs_version: "4.6"
+    - PYTHON: "C:\\Python33"
+      nodejs_version: "4.6"
+    - PYTHON: "C:\\Python34"
+      nodejs_version: "6.9"
+    - PYTHON: "C:\\Python35"
+      nodejs_version: "6.9"
+    - PYTHON: "C:\\Python36"
+      nodejs_version: "7.4"
+
+install:
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  - ps: Install-Product node $env:nodejs_version
+  - pip install virtualenv
+  - virtualenv --clear venv
+  - "venv\\Scripts\\activate.bat"
+  - pip install coverage
+  - pip install calmjs calmjs.dev
+  - pip install -e git+https://github.com/calmjs/calmjs.parse.git#egg=calmjs.parse
+  - python setup.py develop
+  # regenerate egg_info for the package after installation of calmjs
+  - python setup.py egg_info
+
+test_script:
+  - coverage run setup.py test
+  - coverage report -m
+
+artifacts:
+  - path: dist\*
+
+build: off
