@@ -11,9 +11,13 @@ codec = sys.getdefaultencoding()
 NODE_MODULES = 'node_modules'
 
 
+def recode(v):
+    return v if isinstance(v, str) else v.encode(codec)
+
+
 def webpack_env(node_path):
     env = {
         'NODE_PATH': node_path,
         'FORCE_COLOR': '1',
     }
-    return finalize_env(env)
+    return {recode(k): recode(v) for k, v in finalize_env(env).items()}

@@ -17,7 +17,6 @@ from os.path import isdir
 from os.path import pathsep
 from subprocess import call
 
-from calmjs.utils import finalize_env
 from calmjs.toolchain import Toolchain
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
