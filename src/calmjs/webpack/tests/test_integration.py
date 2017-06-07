@@ -47,6 +47,9 @@ def cls_setup_webpack_example_package(cls):
     cls._ep_root = join(cls.dist_dir, 'example', 'package')
     makedirs(cls._ep_root)
 
+    # fake node_modules for transpiled sources
+    cls._nm_root = join(cls.dist_dir, 'fake_modules')
+
     test_root = join(cls._ep_root, 'tests')
     makedirs(test_root)
 
@@ -80,6 +83,29 @@ def cls_setup_webpack_example_package(cls):
 
     # TODO derive this (line, col) from the above
     cls._bad_notdefinedsymbol = (6, 12)
+
+    # a dummy "node" module
+    mockquery = join(cls._nm_root, 'mockquery.js')
+    with open(mockquery, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'exports.mq = function(arg) {\n'
+            '    return [arg];\n'
+            '};\n'
+        )
+
+    # a module that slurps in a transpiled module
+    bare_js = join(cls._ep_root, 'bare.js')
+    with open(bare_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'var $ = require("mockquery").mq;\n'
+            'exports.clean = function(arg) {\n'
+            '    return $(arg);\n'
+            '};\n'
+        )
 
     main_js = join(cls._ep_root, 'main.js')
     with open(main_js, 'w') as fd:
@@ -231,7 +257,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         cli.default_toolchain.env_path = None
         cli.default_toolchain.env_path = self._dt_node_path
 
-    def test_build_bundle_standard(self):
+    def test_webpack_toolchain_standard_only(self):
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         transpile_source_map = {}
@@ -262,6 +288,48 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '2\n4\n')
+
+    def test_webpack_toolchain_with_bundled(self):
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        # include the custom sources, that has names not connected by
+        # main.
+        transpile_source_map = {
+            'example/package/bare': join(self._ep_root, 'bare.js'),
+        }
+        bundle_source_map = {
+            'mockquery': join(self._nm_root, 'mockquery.js'),
+        }
+
+        transpile_source_map.update(self._example_package_map)
+        export_target = join(bundle_dir, 'example.package.js')
+
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_source_map=transpile_source_map,
+            bundle_source_map=bundle_source_map,
+            export_target=export_target,
+            build_dir=build_dir,
+        )
+        webpack(spec)
+
+        self.assertTrue(exists(export_target))
+
+        # verify that the bundle works with node, with the usage of the
+        # bundle through the __calmjs__ entry module
+        stdout, stderr = run_node(
+            'var calmjs = %s\n'
+            'var bare = calmjs.require("example/package/bare");\n'
+            'console.log(bare.clean(1));\n',
+            export_target,
+        )
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, '[ 1 ]\n')
+
+        # XXX TODO make this also the minified version and verify that
+        # the extractor can extract the names.
 
     def test_cli_create_spec(self):
         with pretty_logging(stream=StringIO()):
