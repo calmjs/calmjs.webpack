@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import unittest
+import json
 import os
 import sys
 from os import makedirs
@@ -37,7 +38,8 @@ def skip_full_toolchain_test():  # pragma: no cover
 def run_node(src, *requires):
     # cross platform node runner with require paths.
     # escape backslashes in require paths.
-    return node(src % ('\n'.join('require(%r);' % r for r in requires)))
+    return node(src % ('\n'.join('require(%s);' % json.dumps(
+        r) for r in requires)))
 
 
 def cls_setup_webpack_example_package(cls):
@@ -409,7 +411,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'service.rpc.lib.Library\n')
 
-    @unittest.skip
+    @unittest.skip('')
     def test_cli_compile_explicit_service(self):
         utils.remember_cwd(self)
         working_dir = utils.mkdtemp(self)
@@ -699,7 +701,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertFalse(exists(join(build_dir, 'underscore.js')))
         self.assertTrue(exists(join(build_dir, 'jquery.js')))
 
-    @unittest.skip
+    @unittest.skip('')
     def test_runtime_cli_compile_explicit_service_framework_widget(self):
         def run_node_with_require(*requires):
             os.chdir(self._env_root)

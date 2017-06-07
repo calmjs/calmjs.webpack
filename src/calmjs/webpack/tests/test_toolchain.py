@@ -191,7 +191,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertEqual(config_js, spec['webpack_config'])
 
         with open(config_js['entry']) as fd:
-            self.assertIn("require('example/module')", fd.read())
+            self.assertIn('require("example/module")', fd.read())
 
         self.maxDiff = None
         self.assertEqual(config_js['resolve']['alias'], {
@@ -206,4 +206,4 @@ class ToolchainUnitTestCase(unittest.TestCase):
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
             self.assertIn(
-                "'example/module': require('example/module')", calmjs_module)
+                '"example/module": require("example/module")', calmjs_module)

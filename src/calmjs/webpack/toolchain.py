@@ -5,6 +5,7 @@ Toolchain for using webpack with calmjs.
 
 from __future__ import unicode_literals
 
+import codecs
 import json
 import logging
 import sys
@@ -159,7 +160,8 @@ class WebpackToolchain(Toolchain):
             spec[WEBPACK_DEFAULT_MODULE_NAME] = _DEFAULT_MODULE_NAME
 
         logger.debug(
-            'webpack.output.library = %r', spec[WEBPACK_DEFAULT_MODULE_NAME])
+            'webpack.output.library = %s', json.dumps(
+                spec[WEBPACK_DEFAULT_MODULE_NAME]))
 
         if not isdir(dirname(spec[EXPORT_TARGET])):
             raise WebpackRuntimeError(
@@ -186,14 +188,14 @@ class WebpackToolchain(Toolchain):
         """
 
         exported = [
-            "    %r: require(%r)," % (m, m)
+            "    %(module)s: require(%(module)s)," % {'module': json.dumps(m)}
             for m in spec[EXPORT_MODULE_NAMES]
             if '!' not in m  # lazily filter out loader modules
         ]
 
         export_module_path = join(
             spec[BUILD_DIR], spec[WEBPACK_DEFAULT_MODULE_NAME] + '.js')
-        with open(export_module_path, 'w') as fd:
+        with codecs.open(export_module_path, 'w', encoding='utf8') as fd:
             fd.write(_WEBPACK_CALMJS_MODULE_TEMPLATE % '\n'.join(exported))
         return export_module_path
 
@@ -236,7 +238,8 @@ class WebpackToolchain(Toolchain):
                 alias[modname] = join(spec[BUILD_DIR], *target.split('/'))
 
         # write out the configuration file
-        with open(spec['webpack_config_js'], 'w') as fd:
+        with codecs.open(
+                spec['webpack_config_js'], 'w', encoding='utf8') as fd:
             fd.write(_WEBPACK_CONFIG_TEMPLATE % json.dumps(
                 webpack_config, indent=4))
 

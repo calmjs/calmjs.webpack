@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import unicode_literals
+
 import unittest
+import codecs
 from os.path import join
 from pkg_resources import resource_filename
 
@@ -9,7 +12,7 @@ from calmjs.webpack import interrogation
 
 
 def read(p):
-    with open(p) as fd:
+    with codecs.open(p, encoding='utf8') as fd:
         return fd.read()
 
 
