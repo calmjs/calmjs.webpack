@@ -16,6 +16,7 @@ from os.path import isdir
 from os.path import pathsep
 from subprocess import call
 
+from calmjs.utils import finalize_env
 from calmjs.toolchain import Toolchain
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
@@ -275,10 +276,11 @@ class WebpackToolchain(Toolchain):
         # or associated with this toolchain instance, i.e. the one at
         # the current directory
 
-        rc = call(args, env={
+        env = {
             'NODE_PATH': node_path,
             'FORCE_COLOR': '1',
-        })
+        }
+        rc = call(args, env=finalize_env(env))
         if rc != 0:
             logger.error("webpack has encountered a fatal error")
             raise WebpackExitError(rc, spec[self.webpack_bin_key])
