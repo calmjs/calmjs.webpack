@@ -24,6 +24,8 @@ from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
 
+from .env import webpack_env
+from .env import NODE_MODULES
 from .exc import WebpackRuntimeError
 from .exc import WebpackExitError
 
@@ -249,8 +251,8 @@ class WebpackToolchain(Toolchain):
     def _find_node_modules(self):
         # TODO merge with upstream, or have upstream provide one by
         # splitting up which_with_node_modules
-        paths = (self.node_path or '').split(pathsep)
-        paths.append(self.join_cwd('node_modules'))
+        paths = (self.node_path or str('')).split(pathsep)
+        paths.append(self.join_cwd(NODE_MODULES))
         paths = [p for p in paths if isdir(p)]
         if not paths:
             logger.warning(
@@ -279,11 +281,7 @@ class WebpackToolchain(Toolchain):
         # or associated with this toolchain instance, i.e. the one at
         # the current directory
 
-        env = {
-            'NODE_PATH': node_path,
-            'FORCE_COLOR': '1',
-        }
-        rc = call(args, env=finalize_env(env))
+        rc = call(args, env=webpack_env(node_path))
         if rc != 0:
             logger.error("webpack has encountered a fatal error")
             raise WebpackExitError(rc, spec[self.webpack_bin_key])
