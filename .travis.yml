@@ -68,12 +68,10 @@ before_install:
 
 install:
   - pip install coverage flake8
-  # This typically will work for standard python, but pypy for some
-  # reason will choke hard
-  # - python setup.py develop easy_install calmjs.webpack[dev]
-  # - python setup.py egg_info
-  # Use pypy friendly installation instructions
-  - pip install calmjs calmjs.dev
+  # Installing all the packages via pip to ensure the wheels are used,
+  # to avoid the failure conditions with using the setup.py scripts that
+  # occur on various platforms and configurations.
+  - pip install calmjs calmjs.dev calmjs.parse
   - python setup.py develop
 script:
   - flake8 setup.py src
