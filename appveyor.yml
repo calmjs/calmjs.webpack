@@ -19,12 +19,6 @@ install:
   - "venv\\Scripts\\activate.bat"
   - pip install coverage
   - pip install calmjs calmjs.dev
-
-  # manually install calmjs.parse and ensure the utf8 version of the
-  # tabs are generated; remove when wheels are on pypi.
-  - pip install -e git+https://github.com/calmjs/calmjs.parse.git#egg=calmjs.parse
-  - python -m calmjs.parse.parsers.optimize
-
   - python setup.py develop
 
 test_script:

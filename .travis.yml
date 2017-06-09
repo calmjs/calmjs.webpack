@@ -74,7 +74,6 @@ install:
   # - python setup.py egg_info
   # Use pypy friendly installation instructions
   - pip install calmjs calmjs.dev
-  - pip install -e git+https://github.com/calmjs/calmjs.parse.git#egg=calmjs.parse
   - python setup.py develop
 script:
   - flake8 setup.py src
