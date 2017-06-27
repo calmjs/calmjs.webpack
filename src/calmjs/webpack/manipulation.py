@@ -6,6 +6,7 @@ A collection of helpers for manipulating ES5 sources.
 from calmjs.parse.asttypes import Array
 from calmjs.parse.asttypes import DotAccessor
 from calmjs.parse.asttypes import FunctionCall
+from calmjs.parse.asttypes import Arguments
 from calmjs.parse.asttypes import Identifier
 from calmjs.parse.asttypes import String
 
@@ -36,7 +37,7 @@ def extract_dynamic_require(node):
         isinstance(n, FunctionCall) and
         isinstance(n.identifier, Identifier) and
         n.identifier.value == 'require' and
-        n.args and _non_asttypes_string(n.args[0])
+        n.args.items and _non_asttypes_string(n.args.items[0])
     ))
 
 
@@ -52,7 +53,7 @@ def create_calmjs_require(node):
         args=node.args,
         identifier=DotAccessor(
             node=FunctionCall(
-                args=[String("'__calmjs__'")],
+                args=Arguments([String("'__calmjs__'")]),
                 identifier=Identifier(value='require'),
             ),
             # preserve the original identifier within the DotAccessor itself

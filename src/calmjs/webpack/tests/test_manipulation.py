@@ -2,8 +2,8 @@
 import unittest
 import textwrap
 
-from calmjs.parse import es5
-from calmjs.parse.visitors.es5 import pretty_print
+from calmjs.parse.parsers.es5 import parse as es5
+from calmjs.parse.unparsers.es5 import pretty_print
 from calmjs.webpack.visitor import ReplacementVisitor
 
 from calmjs.webpack.manipulation import create_calmjs_require
@@ -26,7 +26,7 @@ class ExtractionTestCase(unittest.TestCase):
         source = textwrap.dedent("""
         var example1 = require('example1');
         var example2 = require("example2");
-        """).strip()
+        """).lstrip()
 
         self.assertEqual(len(list(extract_dynamic_require(es5(source)))), 0)
 
@@ -34,7 +34,7 @@ class ExtractionTestCase(unittest.TestCase):
         source = textwrap.dedent("""
         require(['example1', "example2"], function(example1, example2) {
         });
-        """).strip()
+        """).lstrip()
 
         self.assertEqual(len(list(extract_dynamic_require(es5(source)))), 0)
 
@@ -43,7 +43,7 @@ class ExtractionTestCase(unittest.TestCase):
         var example1 = require('example1');
         var example2 = require(example1.value);
         var example3 = require(exampl2.parent + '/index');
-        """).strip()
+        """).lstrip()
 
         self.assertEqual(len(list(extract_dynamic_require(es5(source)))), 2)
 
@@ -56,14 +56,14 @@ class ExtractionTestCase(unittest.TestCase):
         });
         require([source], function(source) {
         });
-        """).strip()
+        """).lstrip()
         self.assertEqual(len(list(extract_dynamic_require(es5(source)))), 2)
 
     def test_probe_other_access_types(self):
         source = textwrap.dedent("""
         __calmjs__.require(value);
         require('__calmjs__').require(value);
-        """).strip()
+        """).lstrip()
 
         # none of these should have been extracted
         self.assertEqual(len(list(extract_dynamic_require(es5(source)))), 0)
@@ -108,12 +108,20 @@ class ConversionTestCase(unittest.TestCase):
     Node conversion test cases.
     """
 
+    def test_convert_calmjs_require_empty(self):
+        node = es5("require();")
+        # should be unchanged.
+        self.assertEqual(
+            pretty_print(convert_dynamic_require(node)),
+            "require();\n",
+        )
+
     def test_convert_calmjs_require_static(self):
         node = es5("require('static');")
         # should be unchanged.
         self.assertEqual(
             pretty_print(convert_dynamic_require(node)),
-            "require('static');",
+            "require('static');\n",
         )
 
     def test_create_calmjs_require_dynamic(self):
@@ -121,7 +129,7 @@ class ConversionTestCase(unittest.TestCase):
         node = es5("require(dynamic);")
         self.assertEqual(
             pretty_print(convert_dynamic_require(node)),
-            "require('__calmjs__').require(dynamic);",
+            "require('__calmjs__').require(dynamic);\n",
         )
 
     def test_create_calmjs_require_nested_require(self):
@@ -130,7 +138,7 @@ class ConversionTestCase(unittest.TestCase):
         self.assertEqual(
             pretty_print(convert_dynamic_require(node)),
             "require('__calmjs__').require("
-            "require('__calmjs__').require(dynamic));",
+            "require('__calmjs__').require(dynamic));\n",
         )
 
     def test_dynamic_commonjs_in_static_amd(self):
@@ -141,10 +149,10 @@ class ConversionTestCase(unittest.TestCase):
         });
         """)
         self.assertEqual(textwrap.dedent("""
-        require(['jQuery','underscore'], function($, _) {
+        require(['jQuery', 'underscore'], function($, _) {
           var dynamic_module = require('__calmjs__').require(dynamic);
         });
-        """).strip(), pretty_print(convert_dynamic_require(node)))
+        """).lstrip(), pretty_print(convert_dynamic_require(node)))
 
     def test_dynamic_commonjs_in_dynamic_amd(self):
         node = es5("""
@@ -156,4 +164,4 @@ class ConversionTestCase(unittest.TestCase):
         require('__calmjs__').require([dynamic], function(dynamic_module) {
           var redefined = require('__calmjs__').require(dynamic);
         });
-        """).strip(), pretty_print(convert_dynamic_require(node)))
+        """).lstrip(), pretty_print(convert_dynamic_require(node)))
