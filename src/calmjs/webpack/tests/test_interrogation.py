@@ -6,7 +6,7 @@ import codecs
 from os.path import join
 from pkg_resources import resource_filename
 
-from calmjs.parse import es5
+from calmjs.parse.parsers.es5 import parse
 from calmjs.parse.asttypes import Object
 from calmjs.webpack import interrogation
 
@@ -17,17 +17,18 @@ def read(p):
 
 
 _root = resource_filename('calmjs.webpack.testing', 'examples')
-_base = [es5(read(join(_root, f))) for f in (
+_empty = parse(read(join(_root, 'empty_package.js')))
+_base = [parse(read(join(_root, f))) for f in (
     'example_package.js',
     'example_package.min.js',
 )]
-_extras = [es5(read(join(_root, f))) for f in (
+_extras = [parse(read(join(_root, f))) for f in (
     'example_package.extras.js',
     'example_package.extras.min.js',
 )]
 
-_typical_names = es5(read(join(_root, 'typical_names.js')))
-_unusual_names = es5(read(join(_root, 'unusual_names.js')))
+_typical_names = parse(read(join(_root, 'typical_names.js')))
+_unusual_names = parse(read(join(_root, 'unusual_names.js')))
 
 
 class InterrogationTestCase(unittest.TestCase):
@@ -50,6 +51,15 @@ class InterrogationTestCase(unittest.TestCase):
             'example/package/math',
             'mockquery',
         ], interrogation.probe, _extras)
+
+        self.assertEqual([], interrogation.probe(_empty))
+
+    def test_probe_failure(self):
+        # simply TypeError is raised
+        with self.assertRaises(TypeError):
+            interrogation.probe(parse(read(join(
+                _root, 'example_package.js')).replace(
+                '__calmjs__', '__not_calmjs__')))
 
     def test_identifier_extraction_typical(self):
         # There will be cases where the module names provided are rather

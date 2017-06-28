@@ -54,10 +54,11 @@ def extract_position(node):
     return int(extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
-        isinstance(n.expr.args[0], Assign) and
-        isinstance(n.expr.args[0].right, Number) and
+        n.expr.args.items and
+        isinstance(n.expr.args.items[0], Assign) and
+        isinstance(n.expr.args.items[0].right, Number) and
         n.expr.identifier.value == '__webpack_require__'
-    )).expr.args[0].right.value)
+    )).expr.args.items[0].right.value)
 
 
 def verify_factory_min(node, factory_name):
@@ -74,16 +75,18 @@ def extract_position_min(node):
         isinstance(n, Return) and
         isinstance(n.expr, Comma) and
         isinstance(n.expr.right, FunctionCall) and
-        isinstance(n.expr.right.args[0].right, Number)
-    )).expr.right.args[0].right.value)
+        n.expr.right.args.items and
+        isinstance(n.expr.right.args.items[0].right, Number)
+    )).expr.right.args.items[0].right.value)
 
 
 def extract_module(node, index):
     return extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
-        isinstance(n.expr.args[0], Array)
-    )).expr.args[0].items[index]
+        n.expr.args.items and
+        isinstance(n.expr.args.items[0], Array)
+    )).expr.args.items[0].items[index]
 
 
 def extract_exported_calmjs_names(module_node):
