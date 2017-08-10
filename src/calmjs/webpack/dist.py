@@ -3,8 +3,6 @@
 Module that links to the calmjs.dist, for use with WebpackToolchain.
 """
 
-# TODO merge this into upstream.
-
 import logging
 
 from os import getcwd
@@ -17,6 +15,7 @@ from calmjs.dist import get_module_registry_dependencies
 from calmjs.dist import get_module_registry_names
 from calmjs.dist import flatten_extras_calmjs
 from calmjs.dist import flatten_module_registry_dependencies
+from calmjs.dist import flatten_parents_module_registry_dependencies
 from calmjs.dist import flatten_module_registry_names
 
 logger = logging.getLogger(__name__)
@@ -31,9 +30,19 @@ def list_none(*a, **kw):
     return []
 
 
-source_map_methods_list = {
+source_map_methods_map = {
     'all': flatten_module_registry_dependencies,
     'explicit': get_module_registry_dependencies,
+    'none': map_none,
+}
+
+transpiled_externals_methods_map = {
+    'all': map_none,
+    # Grab the parents.
+    'explicit': flatten_parents_module_registry_dependencies,
+    # Don't need to flatten all the modules and map it as none, since
+    # nothing from the Python system will be produced; also generally
+    # not very useful for webpack's case.
     'none': map_none,
 }
 
@@ -48,6 +57,9 @@ extras_calmjs_methods = {
     'explicit': get_extras_calmjs,
     'none': map_none,
 }
+
+# TODO figure out a way to poke into node_modules to determine the
+# names to stub out for the extras?
 
 
 def acquire_method(methods, key, default=_default):
@@ -83,6 +95,15 @@ def get_calmjs_module_registry_for(package_names, method=_default):
     return registries
 
 
+def _generate_maps(package_names, registry_names, method_map, method_key):
+    map_method = acquire_method(method_map, method_key)
+    result_map = {}
+    for name in registry_names:
+        result_map.update(map_method(package_names, registry_name=name))
+
+    return result_map
+
+
 def generate_transpile_source_maps(
         package_names, registries=('calmjs.modules'), method=_default):
     """
@@ -114,14 +135,31 @@ def generate_transpile_source_maps(
         Defaults to 'all'.
     """
 
-    source_map_method = acquire_method(source_map_methods_list, method)
-    transpile_source_map = {}
+    return _generate_maps(
+        package_names, registries, source_map_methods_map, method)
 
-    for registry_name in registries:
-        transpile_source_map.update(source_map_method(
-            package_names, registry_name=registry_name))
 
-    return transpile_source_map
+def generate_transpiled_externals(
+        package_names, registries=('calmjs.modules'), method=_default):
+    """
+    Webpack specific; get all the source maps, but instead of returning
+    that list of names are modules to be transpiled, assume that they
+    are will be provided by an artifact, i.e. declare them as externals.
+
+    This function returns a compatible mapping that should be assigned
+    to the externals of the configuration, using the same arguments that
+    were passed to the generate_transpile_source_maps function.
+    """
+
+    # the raw source map, to turn into the externals
+    result_map = _generate_maps(
+        package_names, registries, transpiled_externals_methods_map, method)
+    return {
+        key: {
+            "root": ["__calmjs__", "modules", key],
+        }
+        for key in result_map
+    }
 
 
 def generate_bundle_source_maps(

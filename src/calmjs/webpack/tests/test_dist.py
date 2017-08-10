@@ -36,28 +36,75 @@ class DistIntegrationTestCase(unittest.TestCase):
     def tearDownClass(cls):
         utils.teardown_class_integration_environment(cls)
 
-    def test_generate_transpile_source_maps_none(self):
-        mapping = dist.generate_transpile_source_maps(
-            ['site'], registries=(self.registry_name,), method='none')
-        self.assertEqual(sorted(mapping.keys()), [])
+    # test the generate_transpile call as pairs.
+    def test_generate_transpile_explicit_registry_none(self):
+        self.assertEqual([
+        ], sorted(dist.generate_transpile_source_maps(
+            ['site'], registries=(self.registry_name,), method='none')))
 
-    def test_generate_transpile_source_maps_explicit_registry(self):
-        mapping = dist.generate_transpile_source_maps(
-            ['site'], registries=(self.registry_name,))
-        self.assertEqual(sorted(mapping.keys()), [
+        self.assertEqual([
+        ], sorted(dist.generate_transpiled_externals(
+            ['site'], registries=(self.registry_name,), method='none')))
+
+    def test_generate_transpile_explicit_registry_default(self):
+        self.assertEqual([
             'forms/ui', 'framework/lib', 'widget/core', 'widget/datepicker',
             'widget/richedit',
-        ])
+        ], sorted(dist.generate_transpile_source_maps(
+            ['site'], registries=(self.registry_name,))))
+
+        self.assertEqual([
+        ], sorted(dist.generate_transpiled_externals(
+            ['site'], registries=(self.registry_name,))))
 
     def test_generate_transpile_source_maps_explicit_registry_auto(self):
-        # explicitly use the package only for source
-        mapping = dist.generate_transpile_source_maps(
-            ['site'], registries=(self.registry_name,), method='explicit')
-        self.assertEqual(sorted(mapping.keys()), [])
+        # site will have nothing, but all the transpiled externals will
+        # be listed.
+        self.assertEqual([
+        ], sorted(dist.generate_transpile_source_maps(
+            ['site'], registries=(self.registry_name,), method='explicit')))
 
-        mapping = dist.generate_transpile_source_maps(
-            ['forms'], registries=(self.registry_name,), method='explicit')
-        self.assertEqual(sorted(k for k in mapping.keys()), ['forms/ui'])
+        self.assertEqual([
+            'forms/ui', 'framework/lib', 'widget/core', 'widget/datepicker',
+            'widget/richedit',
+        ], sorted(dist.generate_transpiled_externals(
+            ['site'], registries=(self.registry_name,), method='explicit')))
+
+        # forms package will have forms/ui explicitly stated, but the
+        # others will be marked as externals
+        self.assertEqual([
+            'forms/ui',
+        ], sorted(dist.generate_transpile_source_maps(
+            ['forms'], registries=(self.registry_name,), method='explicit')))
+
+        self.assertEqual([
+            'framework/lib', 'widget/core', 'widget/datepicker',
+            'widget/richedit',
+        ], sorted(dist.generate_transpiled_externals(
+            ['forms'], registries=(self.registry_name,), method='explicit')))
+
+    def test_generate_transpile_source_maps_service_default(self):
+        self.assertEqual([
+            'framework/lib', 'service/endpoint', 'service/rpc/lib',
+        ], sorted(dist.generate_transpile_source_maps(
+            ['service'], registries=(self.registry_name,))))
+
+        self.assertEqual([
+        ], sorted(dist.generate_transpiled_externals(
+            ['site'], registries=(self.registry_name,))))
+
+    def test_generate_transpile_source_maps_service_explicit(self):
+        self.assertEqual([
+            'service/endpoint', 'service/rpc/lib',
+        ], sorted(dist.generate_transpile_source_maps(
+            ['service'], registries=(self.registry_name,), method='explicit')))
+
+        self.assertEqual({
+            'framework/lib': {
+                "root": ["__calmjs__", "modules", "framework/lib"],
+            },
+        }, dist.generate_transpiled_externals(
+            ['service'], registries=(self.registry_name,), method='explicit'))
 
     def test_get_calmjs_module_registry_for_site_no_registry(self):
         # since site doesn't actually define an explicit registry that
@@ -88,24 +135,6 @@ class DistIntegrationTestCase(unittest.TestCase):
             dist.get_calmjs_module_registry_for(['forms'], method='auto'),
             [self.registry_name],
         )
-
-    def test_generate_transpile_source_maps_site_explicit_method(self):
-        mapping = dist.generate_transpile_source_maps(
-            ['site'], registries=(self.registry_name,), method='explicit')
-        self.assertEqual(sorted(mapping.keys()), [])
-
-    def test_generate_transpile_source_maps_service_default(self):
-        mapping = dist.generate_transpile_source_maps(
-            ['service'], registries=(self.registry_name,))
-        self.assertEqual(sorted(mapping.keys()), [
-            'framework/lib', 'service/endpoint', 'service/rpc/lib',
-        ])
-
-    def test_generate_transpile_source_maps_service_explicit(self):
-        mapping = dist.generate_transpile_source_maps(
-            ['service'], registries=(self.registry_name,), method='explicit')
-        self.assertEqual(sorted(mapping.keys()), [
-            'service/endpoint', 'service/rpc/lib'])
 
     def test_generate_bundle_source_maps_none(self):
         mapping = dist.generate_bundle_source_maps(

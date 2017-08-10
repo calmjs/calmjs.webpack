@@ -6,7 +6,7 @@ The calmjs runtime collection
 from calmjs.runtime import SourcePackageToolchainRuntime
 
 from calmjs.webpack.dist import extras_calmjs_methods
-from calmjs.webpack.dist import source_map_methods_list
+from calmjs.webpack.dist import source_map_methods_map
 from calmjs.webpack.dist import calmjs_module_registry_methods
 from calmjs.webpack.cli import create_spec
 from calmjs.webpack.cli import default_toolchain
@@ -64,7 +64,7 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
         argparser.add_argument(
             '--source-map-method', default='all',
             dest='source_map_method',
-            choices=sorted(source_map_methods_list.keys()),
+            choices=sorted(source_map_methods_map.keys()),
             help='the acquisition method for getting the source mappings from '
                  'the source registry for the given packages; default: all',
         )
