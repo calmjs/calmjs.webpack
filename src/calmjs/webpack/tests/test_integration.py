@@ -110,6 +110,36 @@ def cls_setup_webpack_example_package(cls):
             '};\n'
         )
 
+    # a module with dynamic require
+    dynamic_js = join(cls._ep_root, 'dynamic.js')
+    with open(dynamic_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'exports.check = function(arg, arg2) {\n'
+            '    var mockquery_name = "mockquery";\n'
+            '    var math_name = "example/package/math";\n'
+            '    var mq = require(mockquery_name).mq;\n'
+            '    var math = require(math_name);\n'
+            '    return math.add(mq(arg)[0], mq(arg2)[0]);\n'
+            '};\n'
+        )
+
+    # a module with dynamic require on the top level which will error.
+    top_dynamic_js = join(cls._ep_root, 'top_dynamic.js')
+    with open(top_dynamic_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'var mockquery_name = "mockquery";\n'
+            'var math_name = "math";\n'
+            'var mq = require(mockquery_name).mq;\n'
+            'var math = require(math_name);\n'
+            'exports.check = function(arg, arg2) {\n'
+            '    return math.add(mq(arg)[0], mq(arg2)[0]);\n'
+            '};\n'
+        )
+
     main_js = join(cls._ep_root, 'main.js')
     with open(main_js, 'w') as fd:
         fd.write(
@@ -333,6 +363,49 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # XXX TODO make this also the minified version and verify that
         # the extractor can extract the names.
+
+    def test_webpack_toolchain_dynamic_with_calmjs(self):
+        # Test that dynamic imports will be transpiled and work through
+        # the injected calmjs system
+
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        # include the custom sources, that has names not connected by
+        # main.
+        transpile_sourcepath = {
+            'example/package/bare': join(self._ep_root, 'bare.js'),
+            'example/package/dynamic': join(self._ep_root, 'dynamic.js'),
+        }
+        bundle_sourcepath = {
+            'mockquery': join(self._nm_root, 'mockquery.js'),
+        }
+
+        transpile_sourcepath.update(self._example_package_map)
+        export_target = join(bundle_dir, 'example.package.js')
+
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_sourcepath=transpile_sourcepath,
+            bundle_sourcepath=bundle_sourcepath,
+            export_target=export_target,
+            build_dir=build_dir,
+        )
+        webpack(spec)
+
+        self.assertTrue(exists(export_target))
+
+        # verify that the bundle works with node, with the usage of the
+        # bundle through the __calmjs__ entry module
+        stdout, stderr = run_node(
+            'var calmjs = %s\n'
+            'var dynamic = calmjs.require("example/package/dynamic");\n'
+            'console.log(dynamic.check(1, 2));\n',
+            export_target,
+        )
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, '3\n')
 
     def test_cli_create_spec(self):
         with pretty_logging(stream=StringIO()):

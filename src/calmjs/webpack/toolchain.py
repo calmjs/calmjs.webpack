@@ -17,11 +17,22 @@ from os.path import isdir
 from os.path import pathsep
 from subprocess import call
 
+# this may be deprecated/removed in the future, so we are doing this for
+# type checking only to make use of calmjs.parse
+from calmjs.vlqsm import SourceWriter
+
 from calmjs.toolchain import Toolchain
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
+
+from calmjs.parse.exceptions import ECMASyntaxError
+from calmjs.parse.parsers.es5 import parse
+from calmjs.parse.unparsers.es5 import pretty_printer
+from calmjs.parse import sourcemap
+
+from calmjs.webpack.manipulation import convert_dynamic_require
 
 from .env import webpack_env
 from .env import NODE_MODULES
@@ -95,14 +106,23 @@ def _null_transpiler(spec, reader, writer):
 
 def _webpack_transpiler(spec, reader, writer):
     # ensure the reader is done from beginning
-    # TODO transpiler to convert dynamic require to using the __calmjs__
-    # loader.
-    # It will need to rewrite
-    # require(<non_string>
-    # into
-    # require('__calmjs__').require(<non_string>
     reader.seek(0)
-    return _null_transpiler(spec, reader, writer)
+    # since calmjs.parse offers a comprehensive solution, the need for
+    # a custom half-baked class should be stripped.
+    stream = writer.stream if isinstance(writer, SourceWriter) else writer
+    # do the conversion
+    try:
+        tree = parse(reader.read())
+    except ECMASyntaxError:
+        # XXX plugin handlers should prevent it from getting to this
+        # stage.
+        return _null_transpiler(spec, reader, writer)
+    names, mappings = sourcemap.write(pretty_printer()(
+        convert_dynamic_require(tree)), stream)
+    # tack that back on
+    if isinstance(writer, SourceWriter):
+        writer.mappings = mappings
+    # else, solution TBD
 
 
 class WebpackToolchain(Toolchain):
