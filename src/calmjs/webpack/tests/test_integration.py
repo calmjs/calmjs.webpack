@@ -9,6 +9,7 @@ from os import makedirs
 from os.path import exists
 from os.path import join
 from shutil import copytree
+from textwrap import dedent
 
 from pkg_resources import get_distribution
 
@@ -411,7 +412,6 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'service.rpc.lib.Library\n')
 
-    @unittest.skip('')
     def test_cli_compile_explicit_service(self):
         utils.remember_cwd(self)
         working_dir = utils.mkdtemp(self)
@@ -429,7 +429,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(spec['export_target'], service_js)
 
         with open(service_js) as fd:
-            self.assertIn('service/rpc/lib', fd.read())
+            service_artifact = fd.read()
+
+        self.assertIn('service/rpc/lib', service_artifact)
 
         # build its parent js separately, too
         spec = cli.compile_all(
@@ -439,22 +441,36 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         framework_js = join(working_dir, 'framework.js')
         self.assertEqual(spec['export_target'], framework_js)
 
+        # also read the artifact for usage later.
+        with open(framework_js) as fd:
+            framework_artifact = fd.read()
+
         # verify that the bundle works with node.  First change back to
         # directory with webpack library installed.
         os.chdir(self._env_root)
 
-        # The execution should then work as expected if we loaded both
-        # bundles.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var rpclib = calmjs.require("service/rpc/lib");\n'
-            'console.log(rpclib.Library);\n',
-            framework_js,
-            service_js,
-        )
+        # The execution cannot follow the standard require format, as
+        # the way webpack use/generate the commonjs/commonjs2 format
+        # assumes they always operate on filenames.  To get around this,
+        # wrap everything in a closure that stubs out module and exports
+        # to simulate an environment similar to a browser; for that a
+        # dumb naked AMD definition is used without arguments.
+        stdout, stderr = node(dedent("""
+        var window = new (function(require, exports, module) {
+        %s
+        %s
+        })();
+        var calmjs = window.__calmjs__;
+        var rpclib = calmjs.require("service/rpc/lib");
+        console.log(rpclib.Library);
+        """) % (framework_artifact, service_artifact))
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'service.rpc.lib.Library\n')
+
+        # TODO build one more example that has another layer deep to
+        # ensure that the addition of further modules from subsequent
+        # artifacts be implemented and tested.
 
     def test_runtime_cli_help_text(self):
         utils.stub_stdouts(self)
@@ -694,9 +710,6 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
                 '--bundlepath-method=explicit',
                 '--export-target=' + widget_js,
             ])
-        # as the explicit option only pulled dependencies from just
-        # this file, the process does not actually complete
-        self.assertNotEqual(e.exception.args[0], 0)
         # ensure that the explicitly defined bundled files are copied
         self.assertFalse(exists(join(build_dir, 'underscore.js')))
         self.assertTrue(exists(join(build_dir, 'jquery.js')))

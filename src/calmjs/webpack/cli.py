@@ -13,10 +13,13 @@ from calmjs.toolchain import CALMJS_MODULE_REGISTRY_NAMES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import SOURCE_PACKAGE_NAMES
 
+from calmjs.webpack.base import WEBPACK_EXTERNALS
 from calmjs.webpack.toolchain import WebpackToolchain
 
 from calmjs.webpack.dist import generate_transpile_sourcepaths
 from calmjs.webpack.dist import generate_bundle_sourcepaths
+from calmjs.webpack.dist import generate_transpiled_externals
+from calmjs.webpack.dist import generate_bundled_externals
 from calmjs.webpack.dist import get_calmjs_module_registry_for
 
 default_toolchain = WebpackToolchain()
@@ -155,12 +158,22 @@ def create_spec(
         registries=source_registries,
         method=sourcepath_method,
     )
+    spec[WEBPACK_EXTERNALS] = generate_transpiled_externals(
+        package_names=package_names,
+        registries=source_registries,
+        method=sourcepath_method,
+    )
 
     spec['bundle_sourcepath'] = generate_bundle_sourcepaths(
         package_names=package_names,
         working_dir=working_dir,
         method=bundlepath_method,
     )
+    spec[WEBPACK_EXTERNALS].update(generate_bundled_externals(
+        package_names=package_names,
+        working_dir=working_dir,
+        method=bundlepath_method,
+    ))
 
     return spec
 

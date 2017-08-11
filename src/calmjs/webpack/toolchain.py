@@ -28,13 +28,11 @@ from .env import NODE_MODULES
 from .exc import WebpackRuntimeError
 from .exc import WebpackExitError
 
+from .base import WEBPACK_CONFIG
+from .base import WEBPACK_EXTERNALS
+from .base import WEBPACK_DEFAULT_MODULE_NAME
 
 logger = logging.getLogger(__name__)
-
-# The spec key for storing the base webpack configuration.
-WEBPACK_CONFIG = 'webpack_config'
-# The key for the default module name, use as the webpack library name
-WEBPACK_DEFAULT_MODULE_NAME = 'webpack_default_module_name'
 
 # other private values
 
@@ -223,6 +221,7 @@ class WebpackToolchain(Toolchain):
                 'umdNamedDefine': True,
             },
             'resolve': {},
+            'externals': spec.get(WEBPACK_EXTERNALS, {}),
         }
 
         webpack_config['entry'] = self.generate_lookup_module(spec)
