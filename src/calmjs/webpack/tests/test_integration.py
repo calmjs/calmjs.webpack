@@ -262,16 +262,16 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
     def test_webpack_toolchain_standard_only(self):
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
-        transpile_source_map = {}
-        transpile_source_map.update(self._example_package_map)
-        bundle_source_map = {}
+        transpile_sourcepath = {}
+        transpile_sourcepath.update(self._example_package_map)
+        bundle_sourcepath = {}
         export_target = join(bundle_dir, 'example.package.js')
 
         webpack = toolchain.WebpackToolchain(
             node_path=join(self._env_root, 'node_modules'))
         spec = Spec(
-            transpile_source_map=transpile_source_map,
-            bundle_source_map=bundle_source_map,
+            transpile_sourcepath=transpile_sourcepath,
+            bundle_sourcepath=bundle_sourcepath,
             export_target=export_target,
             build_dir=build_dir,
         )
@@ -296,21 +296,21 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         build_dir = utils.mkdtemp(self)
         # include the custom sources, that has names not connected by
         # main.
-        transpile_source_map = {
+        transpile_sourcepath = {
             'example/package/bare': join(self._ep_root, 'bare.js'),
         }
-        bundle_source_map = {
+        bundle_sourcepath = {
             'mockquery': join(self._nm_root, 'mockquery.js'),
         }
 
-        transpile_source_map.update(self._example_package_map)
+        transpile_sourcepath.update(self._example_package_map)
         export_target = join(bundle_dir, 'example.package.js')
 
         webpack = toolchain.WebpackToolchain(
             node_path=join(self._env_root, 'node_modules'))
         spec = Spec(
-            transpile_source_map=transpile_source_map,
-            bundle_source_map=bundle_source_map,
+            transpile_sourcepath=transpile_sourcepath,
+            bundle_sourcepath=bundle_sourcepath,
             export_target=export_target,
             build_dir=build_dir,
         )
@@ -390,7 +390,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # but without bundling
         spec = cli.compile_all(
             ['service'], source_registries=(self.registry_name,),
-            bundle_map_method='none',
+            bundlepath_method='none',
         )
         self.assertEqual(
             spec['export_target'], join(working_dir, 'service.js'))
@@ -423,7 +423,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # implemented.
         spec = cli.compile_all(
             ['service'], source_registries=(self.registry_name,),
-            bundle_map_method='none', source_map_method='explicit',
+            bundlepath_method='none', sourcepath_method='explicit',
         )
         service_js = join(working_dir, 'service.js')
         self.assertEqual(spec['export_target'], service_js)
@@ -434,7 +434,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # build its parent js separately, too
         spec = cli.compile_all(
             ['framework'], source_registries=(self.registry_name,),
-            bundle_map_method='none', source_map_method='explicit',
+            bundlepath_method='none', sourcepath_method='explicit',
         )
         framework_js = join(working_dir, 'framework.js')
         self.assertEqual(spec['export_target'], framework_js)
@@ -613,8 +613,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'webpack', 'site',
-                '--source-map-method=explicit',
-                '--bundle-map-method=none',
+                '--sourcepath-method=explicit',
+                '--bundlepath-method=none',
                 '--export-target=' + target_file,
                 '--source-registry=' + self.registry_name,
             ])
@@ -669,8 +669,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             runtime.main([
                 'webpack', 'widget',
                 '--build-dir=' + build_dir,
-                '--source-map-method=all',
-                '--bundle-map-method=all',
+                '--sourcepath-method=all',
+                '--bundlepath-method=all',
                 '--export-target=' + widget_js,
             ])
         self.assertEqual(e.exception.args[0], 0)
@@ -690,8 +690,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             runtime.main([
                 'webpack', 'widget',
                 '--build-dir=' + build_dir,
-                '--source-map-method=all',
-                '--bundle-map-method=explicit',
+                '--sourcepath-method=all',
+                '--bundlepath-method=explicit',
                 '--export-target=' + widget_js,
             ])
         # as the explicit option only pulled dependencies from just
@@ -736,7 +736,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # Invoke the thing through the main runtime
         runtime_main([
             'webpack', 'framework', 'forms', 'service',
-            '--source-map-method=explicit',
+            '--sourcepath-method=explicit',
             '--export-target=' + target_file,
             '--source-registry=' + self.registry_name,
         ])
@@ -754,7 +754,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         widget_js = join(current_dir, 'widget.js')
         runtime_main([
             'webpack', 'widget',
-            '--source-map-method=explicit',
+            '--sourcepath-method=explicit',
             '--export-target=' + widget_js,
             '--source-registry=' + self.registry_name,
         ])

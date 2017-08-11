@@ -15,8 +15,8 @@ from calmjs.toolchain import SOURCE_PACKAGE_NAMES
 
 from calmjs.webpack.toolchain import WebpackToolchain
 
-from calmjs.webpack.dist import generate_transpile_source_maps
-from calmjs.webpack.dist import generate_bundle_source_maps
+from calmjs.webpack.dist import generate_transpile_sourcepaths
+from calmjs.webpack.dist import generate_bundle_sourcepaths
 from calmjs.webpack.dist import get_calmjs_module_registry_for
 
 default_toolchain = WebpackToolchain()
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 def create_spec(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
-        source_map_method='all', bundle_map_method='all',
+        sourcepath_method='all', bundlepath_method='all',
         ):
     """
     Produce a spec for the compilation through the WebpackToolchain.
@@ -73,10 +73,13 @@ def create_spec(
         explicit list of calmjs module registries to use.  Typical use
         case is to generate tests.
 
-    source_map_method
-        The acquisition method for the source mapping for the given
-        package from the source_registries specified.  Choices are
-        between 'all', 'explicit' or 'none'.
+    sourcepath_method
+        The acquisition method for the source module to filesystem path
+        mapping for the given packages from the source_registries that
+        were specified.
+
+        Choices are between 'all', 'explicit' or 'none'.
+        Defaults to 'all'.
 
         'all'
             Traverse the dependency graph for the specified package to
@@ -89,9 +92,11 @@ def create_spec(
 
         Defaults to 'all'.
 
-    bundle_map_method
-        The acquisition method for the bundle sources for the given
-        module.  Choices are between 'all', 'explicit' or 'none'.
+    bundlepath_method
+        The acquisition method for retrieving explicitly defined bundle
+        sources from Node.js module sources for the given packages.
+
+        Choices are between 'all', 'explicit' or 'none'.
         Defaults to 'all'.
 
         'all'
@@ -145,16 +150,16 @@ def create_spec(
     spec[EXPORT_TARGET] = export_target
     spec[SOURCE_PACKAGE_NAMES] = package_names
 
-    spec['transpile_source_map'] = generate_transpile_source_maps(
+    spec['transpile_sourcepath'] = generate_transpile_sourcepaths(
         package_names=package_names,
         registries=source_registries,
-        method=source_map_method,
+        method=sourcepath_method,
     )
 
-    spec['bundle_source_map'] = generate_bundle_source_maps(
+    spec['bundle_sourcepath'] = generate_bundle_sourcepaths(
         package_names=package_names,
         working_dir=working_dir,
-        method=bundle_map_method,
+        method=bundlepath_method,
     )
 
     return spec
@@ -163,7 +168,7 @@ def create_spec(
 def compile_all(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
-        source_map_method='all', bundle_map_method='all',
+        sourcepath_method='all', bundlepath_method='all',
         toolchain=default_toolchain):
     """
     Invoke the webpack compiler to generate a JavaScript bundle file for
@@ -191,8 +196,8 @@ def compile_all(
         build_dir=build_dir,
         source_registry_method=source_registry_method,
         source_registries=source_registries,
-        source_map_method=source_map_method,
-        bundle_map_method=bundle_map_method,
+        sourcepath_method=sourcepath_method,
+        bundlepath_method=bundlepath_method,
     )
     toolchain(spec)
     return spec

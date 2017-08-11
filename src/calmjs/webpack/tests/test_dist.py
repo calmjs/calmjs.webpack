@@ -39,7 +39,7 @@ class DistIntegrationTestCase(unittest.TestCase):
     # test the generate_transpile call as pairs.
     def test_generate_transpile_explicit_registry_none(self):
         self.assertEqual([
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['site'], registries=(self.registry_name,), method='none')))
 
         self.assertEqual([
@@ -50,18 +50,18 @@ class DistIntegrationTestCase(unittest.TestCase):
         self.assertEqual([
             'forms/ui', 'framework/lib', 'widget/core', 'widget/datepicker',
             'widget/richedit',
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['site'], registries=(self.registry_name,))))
 
         self.assertEqual([
         ], sorted(dist.generate_transpiled_externals(
             ['site'], registries=(self.registry_name,))))
 
-    def test_generate_transpile_source_maps_explicit_registry_auto(self):
+    def test_generate_transpile_sourcepaths_explicit_registry_auto(self):
         # site will have nothing, but all the transpiled externals will
         # be listed.
         self.assertEqual([
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['site'], registries=(self.registry_name,), method='explicit')))
 
         self.assertEqual([
@@ -74,7 +74,7 @@ class DistIntegrationTestCase(unittest.TestCase):
         # others will be marked as externals
         self.assertEqual([
             'forms/ui',
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['forms'], registries=(self.registry_name,), method='explicit')))
 
         self.assertEqual([
@@ -83,20 +83,20 @@ class DistIntegrationTestCase(unittest.TestCase):
         ], sorted(dist.generate_transpiled_externals(
             ['forms'], registries=(self.registry_name,), method='explicit')))
 
-    def test_generate_transpile_source_maps_service_default(self):
+    def test_generate_transpile_sourcepaths_service_default(self):
         self.assertEqual([
             'framework/lib', 'service/endpoint', 'service/rpc/lib',
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['service'], registries=(self.registry_name,))))
 
         self.assertEqual([
         ], sorted(dist.generate_transpiled_externals(
             ['site'], registries=(self.registry_name,))))
 
-    def test_generate_transpile_source_maps_service_explicit(self):
+    def test_generate_transpile_sourcepaths_service_explicit(self):
         self.assertEqual([
             'service/endpoint', 'service/rpc/lib',
-        ], sorted(dist.generate_transpile_source_maps(
+        ], sorted(dist.generate_transpile_sourcepaths(
             ['service'], registries=(self.registry_name,), method='explicit')))
 
         self.assertEqual({
@@ -137,21 +137,21 @@ class DistIntegrationTestCase(unittest.TestCase):
             [self.registry_name],
         )
 
-    def test_generate_bundle_source_maps_none(self):
-        mapping = dist.generate_bundle_source_maps(
+    def test_generate_bundle_sourcepaths_none(self):
+        mapping = dist.generate_bundle_sourcepaths(
             ['site'], method='none')
         self.assertEqual(sorted(mapping.keys()), [])
 
-    def test_generate_bundle_source_maps_bad_dir(self):
+    def test_generate_bundle_sourcepaths_bad_dir(self):
         bad_dir = utils.mkdtemp(self)
         with pretty_logging(stream=StringIO()) as log:
-            mapping = dist.generate_bundle_source_maps(
+            mapping = dist.generate_bundle_sourcepaths(
                 ['service'], bad_dir)
         self.assertEqual(sorted(mapping.keys()), [])
         self.assertIn('fake_modules', log.getvalue())
 
-    def test_generate_bundle_source_maps_site_default(self):
-        mapping = dist.generate_bundle_source_maps(
+    def test_generate_bundle_sourcepaths_site_default(self):
+        mapping = dist.generate_bundle_sourcepaths(
             ['site'], self.dist_dir)
         self.assertEqual(sorted(mapping.keys()), ['jquery', 'underscore'])
         self.assertTrue(mapping['jquery'].endswith(
@@ -159,15 +159,15 @@ class DistIntegrationTestCase(unittest.TestCase):
         self.assertTrue(mapping['underscore'].endswith(
             join('fake_modules', 'underscore', 'underscore.js')))
 
-    def test_generate_bundle_source_maps_default(self):
-        mapping = dist.generate_bundle_source_maps(
+    def test_generate_bundle_sourcepaths_default(self):
+        mapping = dist.generate_bundle_sourcepaths(
             ['framework'], self.dist_dir)
         self.assertEqual(sorted(mapping.keys()), [
             'jquery', 'underscore',
         ])
         self.assertIn(
             (join('underscore', 'underscore-min.js')), mapping['underscore'])
-        mapping = dist.generate_bundle_source_maps(
+        mapping = dist.generate_bundle_sourcepaths(
             ['service'], self.dist_dir)
         self.assertEqual(sorted(mapping.keys()), [
             'jquery', 'underscore',
@@ -176,8 +176,8 @@ class DistIntegrationTestCase(unittest.TestCase):
             (join('underscore', 'underscore.js')), mapping['underscore'])
         self.assertIn('jquery', mapping['jquery'])
 
-    def test_generate_bundle_source_maps_service_explicit(self):
-        mapping = dist.generate_bundle_source_maps(
+    def test_generate_bundle_sourcepaths_service_explicit(self):
+        mapping = dist.generate_bundle_sourcepaths(
             ['service'], self.dist_dir, method='explicit')
         self.assertEqual(sorted(mapping.keys()), ['underscore'])
         self.assertIn(

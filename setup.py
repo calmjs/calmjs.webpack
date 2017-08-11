@@ -52,7 +52,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'calmjs>=2.0.0,<3',
+        'calmjs>=3.0.0dev',
         'calmjs.parse',
     ],
     extras_require={

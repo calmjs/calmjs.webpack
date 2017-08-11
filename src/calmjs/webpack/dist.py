@@ -31,7 +31,7 @@ def list_none(*a, **kw):
     return []
 
 
-source_map_methods_map = {
+sourcepath_methods_map = {
     'all': flatten_module_registry_dependencies,
     'explicit': get_module_registry_dependencies,
     'none': map_none,
@@ -78,7 +78,8 @@ def get_calmjs_module_registry_for(package_names, method=_default):
     Acquire the module registries required for the package_names.
 
     package_names
-        The names of the Python package to generate the source maps for.
+        The names of the Python package to generate the module name to
+        filesystem path mapping (source path).
     method
         The method to acquire the dependencies for the given module
         across all the registries specified.  Choices are between 'all',
@@ -92,7 +93,7 @@ def get_calmjs_module_registry_for(package_names, method=_default):
             to prevent bundling.  Only the declared sources for the
             specified packages will be untouched.
         'none'
-            Produce an empty source map.
+            Produce an empty mapping.
 
         All options not on above list defaults to 'all'
     """
@@ -112,16 +113,18 @@ def _generate_transpile_maps(
     return result_map
 
 
-def generate_transpile_source_maps(
+def generate_transpile_sourcepaths(
         package_names, registries=('calmjs.modules'), method=_default):
     """
     Invoke the module_registry_dependencies family of dist functions,
-    with the specified registries, to produce the required source maps.
+    with the specified registries, to produce the required the module
+    name to filesystem path mapping.
 
     Arguments:
 
     package_names
-        The names of the Python package to generate the source maps for.
+        The names of the Python package to generate the the module name
+        to filesystem path mapping for.
     registries
         The names of the registries to source the packages from.  If
         unspecified, pick the options declared by the provided packages.
@@ -138,25 +141,26 @@ def generate_transpile_source_maps(
             to prevent bundling.  Only the declared sources for the
             specified packages will be untouched.
         'none'
-            Produce an empty source map.
+            Produce an empty mapping.
 
         Defaults to 'all'.
     """
 
     return _generate_transpile_maps(
-        package_names, registries, source_map_methods_map, method)
+        package_names, registries, sourcepath_methods_map, method)
 
 
 def generate_transpiled_externals(
         package_names, registries=('calmjs.modules'), method=_default):
     """
-    Webpack specific; get all the source maps, but instead of returning
-    that list of names are modules to be transpiled, assume that they
-    are will be provided by an artifact, i.e. declare them as externals.
+    Webpack specific - for every call to generate_transpile_sourcepaths
+    with the results assigned to the transpile_sourcepaths of a spec, an
+    associated call to this function with the identical arguments should
+    be called and the results be updated to the webpack root
+    configuration object's external key.
 
-    This function returns a compatible mapping that should be assigned
-    to the externals of the configuration, using the same arguments that
-    were passed to the generate_transpile_source_maps function.
+    This is so that webpack will have a correct set of modules names
+    that it will look up externally.
     """
 
     # the raw source map, to turn into the externals
@@ -177,7 +181,7 @@ def _generate_bundle_maps(package_names, working_dir, method_map, method_key):
     # subdirectories.
     valid_pkgmgr_dirs = set(get('calmjs.extras_keys').iter_records())
     extras_calmjs = map_method(package_names)
-    bundle_source_map = {}
+    bundle_sourcepath = {}
 
     for mgr in extras_calmjs:
         if mgr not in valid_pkgmgr_dirs:
@@ -193,15 +197,16 @@ def _generate_bundle_maps(package_names, working_dir, method_map, method_key):
             continue  # pragma: no cover
 
         for k, v in extras_calmjs[mgr].items():
-            bundle_source_map[k] = join(basedir, *(v.split('/')))
+            bundle_sourcepath[k] = join(basedir, *(v.split('/')))
 
-    return bundle_source_map
+    return bundle_sourcepath
 
 
-def generate_bundle_source_maps(
+def generate_bundle_sourcepaths(
         package_names, working_dir=None, method=_default):
     """
-    Acquire the bundle source maps through the calmjs registry system.
+    Acquire the bundled module name to filesystem path mapping through
+    the calmjs registry system.
 
     Arguments:
 
@@ -233,13 +238,15 @@ def generate_bundle_source_maps(
 def generate_bundled_externals(
         package_names, working_dir=None, method=_default):
     """
-    Webpack specific; acquire the bundle source paths through the calmjs
-    that list of names are modules to be transpiled, assume that they
-    are will be provided by an artifact, i.e. declare them as externals.
+    Webpack specific - for every call to generate_bundle_sourcepaths
+    with the results assigned to the bundle_sourcepaths of a spec, an
+    associated call to this function with the identical arguments should
+    be called and the results be updated to the webpack root
+    configuration object's external key.
 
-    This function returns a compatible mapping that should be assigned
-    to the externals of the configuration, using the same arguments that
-    were passed to the generate_bundle_source_maps function.
+    This is so that webpack will have a correct set of modules names
+    that it will look up externally for modules that are sourced from
+    registered Node.js associated package management systems.
     """
 
     working_dir = working_dir if working_dir else getcwd()

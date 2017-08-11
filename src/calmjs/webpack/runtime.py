@@ -6,7 +6,7 @@ The calmjs runtime collection
 from calmjs.runtime import SourcePackageToolchainRuntime
 
 from calmjs.webpack.dist import extras_calmjs_methods
-from calmjs.webpack.dist import source_map_methods_map
+from calmjs.webpack.dist import sourcepath_methods_map
 from calmjs.webpack.dist import calmjs_module_registry_methods
 from calmjs.webpack.cli import create_spec
 from calmjs.webpack.cli import default_toolchain
@@ -62,11 +62,12 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
         super(WebpackRuntime, self).init_argparser(argparser)
 
         argparser.add_argument(
-            '--source-map-method', default='all',
-            dest='source_map_method',
-            choices=sorted(source_map_methods_map.keys()),
-            help='the acquisition method for getting the source mappings from '
-                 'the source registry for the given packages; default: all',
+            '--sourcepath-method', default='all',
+            dest='sourcepath_method',
+            choices=sorted(sourcepath_methods_map.keys()),
+            help='the acquisition method for getting the source module to '
+                 'filesystem path mappings from the source registry for the '
+                 'given packages; default: all',
         )
 
         argparser.add_argument(
@@ -78,10 +79,11 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
         )
 
         argparser.add_argument(
-            '--bundle-map-method', default='all',
-            dest='bundle_map_method',
+            '--bundlepath-method', default='all',
+            dest='bundlepath_method',
             choices=sorted(extras_calmjs_methods.keys()),
-            help='the acquisition method for the bundle sources for the given '
+            help='the acquisition method for retrieving explicitly defined '
+                 'bundled sources from Node.js module sources for the given '
                  'packages; default: all',
         )
 
@@ -91,7 +93,7 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             build_dir=None,
             calmjs_module_registry_names=None,
             source_registry_method='all',
-            source_map_method='all', bundle_map_method='all',
+            sourcepath_method='all', bundlepath_method='all',
             toolchain=None, **kwargs):
         """
         Accept all arguments, but also the explicit set of arguments
@@ -107,8 +109,8 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             build_dir=build_dir,
             source_registry_method=source_registry_method,
             source_registries=calmjs_module_registry_names,
-            source_map_method=source_map_method,
-            bundle_map_method=bundle_map_method,
+            sourcepath_method=sourcepath_method,
+            bundlepath_method=bundlepath_method,
         )
 
 

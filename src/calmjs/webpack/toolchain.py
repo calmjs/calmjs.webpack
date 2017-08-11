@@ -234,7 +234,7 @@ class WebpackToolchain(Toolchain):
         # be specified using optional advices.
         source_prefixes = ('transpiled', 'bundled')
         for prefix in source_prefixes:
-            key = prefix + '_targets'
+            key = prefix + '_targetpaths'
             for modname, target in spec[key].items():
                 # XXX lazily filter out any potential loader modules
                 # XXX should only copy the ultimate final fragment into

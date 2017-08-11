@@ -113,8 +113,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
             build_dir=tmpdir,
             transpiled_modpaths={},
             bundled_modpaths={},
-            transpiled_targets={},
-            bundled_targets={},
+            transpiled_targetpaths={},
+            bundled_targetpaths={},
             export_module_names=[],
         )
 
@@ -152,7 +152,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
             # mock a webpack executable.
             pass
 
-        # note that all *_targets are relative to the build dir.
+        # note that all *_targetpaths are relative to the build dir.
         spec = Spec(
             # export_target will not be written.
             export_target=join(tmpdir, 'bundle.js'),
@@ -163,10 +163,10 @@ class ToolchainUnitTestCase(unittest.TestCase):
             bundled_modpaths={
                 'bundled_pkg': 'bundled_pkg',
             },
-            transpiled_targets={
+            transpiled_targetpaths={
                 'example/module': 'example/module.js',
             },
-            bundled_targets={
+            bundled_targetpaths={
                 'bundled_pkg': 'bundled_pkg.js',
                 # note that this is probably meaningless in the context
                 # of webpack.
