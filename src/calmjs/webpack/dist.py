@@ -14,6 +14,7 @@ from calmjs.dist import get_extras_calmjs
 from calmjs.dist import get_module_registry_dependencies
 from calmjs.dist import get_module_registry_names
 from calmjs.dist import flatten_extras_calmjs
+from calmjs.dist import flatten_parents_extras_calmjs
 from calmjs.dist import flatten_module_registry_dependencies
 from calmjs.dist import flatten_parents_module_registry_dependencies
 from calmjs.dist import flatten_module_registry_names
@@ -58,6 +59,12 @@ extras_calmjs_methods = {
     'none': map_none,
 }
 
+external_extras_calmjs_methods = {
+    'all': map_none,
+    'explicit': flatten_parents_extras_calmjs,
+    'none': map_none,
+}
+
 # TODO figure out a way to poke into node_modules to determine the
 # names to stub out for the extras?
 
@@ -95,7 +102,8 @@ def get_calmjs_module_registry_for(package_names, method=_default):
     return registries
 
 
-def _generate_maps(package_names, registry_names, method_map, method_key):
+def _generate_transpile_maps(
+        package_names, registry_names, method_map, method_key):
     map_method = acquire_method(method_map, method_key)
     result_map = {}
     for name in registry_names:
@@ -135,7 +143,7 @@ def generate_transpile_source_maps(
         Defaults to 'all'.
     """
 
-    return _generate_maps(
+    return _generate_transpile_maps(
         package_names, registries, source_map_methods_map, method)
 
 
@@ -152,15 +160,42 @@ def generate_transpiled_externals(
     """
 
     # the raw source map, to turn into the externals
-    result_map = _generate_maps(
-        package_names, registries, transpiled_externals_methods_map, method)
     return {
         key: {
             "root": ["__calmjs__", "modules", key],
             "amd": ["__calmjs__", "modules", key],
         }
-        for key in result_map
+        for key in _generate_transpile_maps(
+            package_names, registries, transpiled_externals_methods_map, method
+        )
     }
+
+
+def _generate_bundle_maps(package_names, working_dir, method_map, method_key):
+    map_method = acquire_method(method_map, method_key)
+    # the extras keys will be treated as valid Node.js package manager
+    # subdirectories.
+    valid_pkgmgr_dirs = set(get('calmjs.extras_keys').iter_records())
+    extras_calmjs = map_method(package_names)
+    bundle_source_map = {}
+
+    for mgr in extras_calmjs:
+        if mgr not in valid_pkgmgr_dirs:
+            continue
+        basedir = join(working_dir, mgr)
+        if not isdir(basedir):
+            if extras_calmjs[mgr]:
+                logger.warning(
+                    "acquired extras_calmjs needs from '%s', but working "
+                    "directory '%s' does not contain it; bundling may fail.",
+                    mgr, working_dir
+                )
+            continue  # pragma: no cover
+
+        for k, v in extras_calmjs[mgr].items():
+            bundle_source_map[k] = join(basedir, *(v.split('/')))
+
+    return bundle_source_map
 
 
 def generate_bundle_source_maps(
@@ -191,28 +226,33 @@ def generate_bundle_source_maps(
     """
 
     working_dir = working_dir if working_dir else getcwd()
-    acquire_extras_calmjs = acquire_method(extras_calmjs_methods, method)
+    return _generate_bundle_maps(
+        package_names, working_dir, extras_calmjs_methods, method)
 
-    # the extras keys will be treated as valid Node.js package manager
-    # subdirectories.
-    valid_pkgmgr_dirs = set(get('calmjs.extras_keys').iter_records())
-    extras_calmjs = acquire_extras_calmjs(package_names)
-    bundle_source_map = {}
 
-    for mgr in extras_calmjs:
-        if mgr not in valid_pkgmgr_dirs:
-            continue
-        basedir = join(working_dir, mgr)
-        if not isdir(basedir):
-            if extras_calmjs[mgr]:
-                logger.warning(
-                    "acquired extras_calmjs needs from '%s', but working "
-                    "directory '%s' does not contain it; bundling may fail.",
-                    mgr, working_dir
-                )
-            continue  # pragma: no cover
+def generate_bundled_externals(
+        package_names, working_dir=None, method=_default):
+    """
+    Webpack specific; acquire the bundle source paths through the calmjs
+    that list of names are modules to be transpiled, assume that they
+    are will be provided by an artifact, i.e. declare them as externals.
 
-        for k, v in extras_calmjs[mgr].items():
-            bundle_source_map[k] = join(basedir, *(v.split('/')))
+    This function returns a compatible mapping that should be assigned
+    to the externals of the configuration, using the same arguments that
+    were passed to the generate_bundle_source_maps function.
+    """
 
-    return bundle_source_map
+    working_dir = working_dir if working_dir else getcwd()
+    # track the list of declared externals.
+    declared = _generate_bundle_maps(
+        package_names, working_dir, extras_calmjs_methods, method)
+    return {
+        key: {
+            "root": key,
+            "amd": key,
+        }
+        for key in _generate_bundle_maps(
+            package_names, working_dir, external_extras_calmjs_methods, method
+        )
+        if key not in declared
+    }

@@ -182,3 +182,9 @@ class DistIntegrationTestCase(unittest.TestCase):
         self.assertEqual(sorted(mapping.keys()), ['underscore'])
         self.assertIn(
             (join('underscore', 'underscore.js')), mapping['underscore'])
+
+        externals = dist.generate_bundled_externals(
+            ['service'], self.dist_dir, method='explicit')
+        self.assertEqual(externals, {
+            'jquery': {"root": 'jquery', "amd": 'jquery'}
+        })
