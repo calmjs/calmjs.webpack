@@ -212,9 +212,15 @@ class WebpackToolchain(Toolchain):
             'output': {
                 'path': dirname(spec[EXPORT_TARGET]),
                 'filename': basename(spec[EXPORT_TARGET]),
-                'libraryTarget': 'umd',  # XXX magic,
                 'library': spec[WEBPACK_DEFAULT_MODULE_NAME],
                 # TODO determine publicPath
+
+                # XXX Currently using magic values.  The library target
+                # should be configured, along with umdNamedDefine also
+                # when the way to expose the relevant options as proper
+                # sets are determined.
+                'libraryTarget': 'umd',
+                'umdNamedDefine': True,
             },
             'resolve': {},
         }

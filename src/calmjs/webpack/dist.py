@@ -157,6 +157,7 @@ def generate_transpiled_externals(
     return {
         key: {
             "root": ["__calmjs__", "modules", key],
+            "amd": ["__calmjs__", "modules", key],
         }
         for key in result_map
     }

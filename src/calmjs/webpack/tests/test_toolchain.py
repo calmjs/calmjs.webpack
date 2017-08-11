@@ -138,6 +138,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
             "filename": "bundle.js",
             "libraryTarget": "umd",
             "library": "__calmjs__",
+            "umdNamedDefine": True,
         })
         self.assertEqual(config_js['resolve']['alias'], {
             '__calmjs__': join(tmpdir, '__calmjs__.js'),

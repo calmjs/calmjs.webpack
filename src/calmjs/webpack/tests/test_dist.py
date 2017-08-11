@@ -102,6 +102,7 @@ class DistIntegrationTestCase(unittest.TestCase):
         self.assertEqual({
             'framework/lib': {
                 "root": ["__calmjs__", "modules", "framework/lib"],
+                "amd": ["__calmjs__", "modules", "framework/lib"],
             },
         }, dist.generate_transpiled_externals(
             ['service'], registries=(self.registry_name,), method='explicit'))
