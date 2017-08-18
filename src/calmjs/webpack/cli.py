@@ -14,6 +14,10 @@ from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import SOURCE_PACKAGE_NAMES
 
 from calmjs.webpack.base import WEBPACK_EXTERNALS
+from calmjs.webpack.base import WEBPACK_OUTPUT_LIBRARY
+
+from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
+
 from calmjs.webpack.toolchain import WebpackToolchain
 
 from calmjs.webpack.dist import generate_transpile_sourcepaths
@@ -30,6 +34,7 @@ def create_spec(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
         sourcepath_method='all', bundlepath_method='all',
+        use_calmjs_bootstrap=True,
         ):
     """
     Produce a spec for the compilation through the WebpackToolchain.
@@ -88,7 +93,9 @@ def create_spec(
             Traverse the dependency graph for the specified package to
             acquire the sources declared for each of those modules.
         'explicit'
-            Only acquire the sources for the specified package.
+            Only acquire the sources for the specified package.  This
+            option requires 'use_calmjs_bootstrap' be True or it may not
+            function as intended.
         'none'
             Do not acquire sources.  Useful for creating bundles of just
             the bundle sources.
@@ -107,11 +114,24 @@ def create_spec(
             acquire the declarations.
         'explicit'
             Only acquire the bundle sources declared for the specified
-            package.
+            package.  This option requires 'use_calmjs_bootstrap' be
+            True or it may not function as intended.
         'none'
             Do not specify any bundle files.
 
         Defaults to 'all'.
+
+    use_calmjs_bootstrap
+        Add the calmjs webpack module bootstrap module.  When enabled,
+        this option modifies the configuration so that for root and amd
+        mode, a __calmjs__ module is always required and exported, so
+        that the explicit option of *path_method of explicit will work
+        as intended.
+
+        This also force the webpack.output.library option for the config
+        to be set to '__calmjs__'.
+
+        Defaults to True.
 
     """
 
@@ -158,22 +178,47 @@ def create_spec(
         registries=source_registries,
         method=sourcepath_method,
     )
-    spec[WEBPACK_EXTERNALS] = generate_transpiled_externals(
-        package_names=package_names,
-        registries=source_registries,
-        method=sourcepath_method,
-    )
-
     spec['bundle_sourcepath'] = generate_bundle_sourcepaths(
         package_names=package_names,
         working_dir=working_dir,
         method=bundlepath_method,
     )
-    spec[WEBPACK_EXTERNALS].update(generate_bundled_externals(
-        package_names=package_names,
-        working_dir=working_dir,
-        method=bundlepath_method,
-    ))
+
+    # TODO figure out if/how to deal with explicit webpack.library and
+    # the webpack.libraryTarget option, as this conflicts with the
+    # use_calmjs_bootstrap option
+
+    if use_calmjs_bootstrap:
+        logger.info(
+            "using calmjs bootstrap; webpack.output.library set to '%s'",
+            DEFAULT_BOOTSTRAP_EXPORT,
+        )
+        spec[WEBPACK_OUTPUT_LIBRARY] = DEFAULT_BOOTSTRAP_EXPORT
+        # also specify this as the external that is needed.
+        spec[WEBPACK_EXTERNALS] = {
+            DEFAULT_BOOTSTRAP_EXPORT: {
+                "root": DEFAULT_BOOTSTRAP_EXPORT,
+                "amd": DEFAULT_BOOTSTRAP_EXPORT,
+            }
+        }
+        spec[WEBPACK_EXTERNALS].update(generate_transpiled_externals(
+            package_names=package_names,
+            registries=source_registries,
+            method=sourcepath_method,
+        ))
+        spec[WEBPACK_EXTERNALS].update(generate_bundled_externals(
+            package_names=package_names,
+            working_dir=working_dir,
+            method=bundlepath_method,
+        ))
+    else:
+        # lazily deriving that from previous value.
+        spec[WEBPACK_OUTPUT_LIBRARY] = export_target[:-3]
+        logger.info(
+            "not using calmjs bootstrap; "
+            "webpack.output.library set to '%s'", spec[WEBPACK_OUTPUT_LIBRARY]
+        )
+        # TODO should warn about the *path_methods if they are not all.
 
     return spec
 
@@ -182,6 +227,7 @@ def compile_all(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
         sourcepath_method='all', bundlepath_method='all',
+        use_calmjs_bootstrap=True,
         toolchain=default_toolchain):
     """
     Invoke the webpack compiler to generate a JavaScript bundle file for
@@ -211,6 +257,7 @@ def compile_all(
         source_registries=source_registries,
         sourcepath_method=sourcepath_method,
         bundlepath_method=bundlepath_method,
+        use_calmjs_bootstrap=use_calmjs_bootstrap,
     )
     toolchain(spec)
     return spec

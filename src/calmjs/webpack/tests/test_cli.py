@@ -22,9 +22,30 @@ class CliTestCase(unittest.TestCase):
 
         self.assertNotIn('packages []', stream.getvalue())
         self.assertIn('no packages specified', stream.getvalue())
+        self.assertIn(
+            "using calmjs bootstrap; webpack.output.library set to "
+            "'__calmjs__'", stream.getvalue()
+        )
         self.assertTrue(isinstance(spec, Spec))
         self.assertEqual(spec['export_target'], 'calmjs.webpack.export.js')
         self.assertEqual(spec['calmjs_module_registry_names'], [])
+        self.assertIn('webpack_externals', spec)
+        self.assertEqual(spec['webpack_output_library'], '__calmjs__')
+
+    def test_create_spec_empty_use_calmjs_bootstrap_disable(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec([], use_calmjs_bootstrap=False)
+
+        self.assertNotIn('packages []', stream.getvalue())
+        self.assertIn('no packages specified', stream.getvalue())
+        self.assertIn(
+            "not using calmjs bootstrap; webpack.output.library set to "
+            "'calmjs.webpack.export'", stream.getvalue()
+        )
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertNotIn('webpack_externals', spec)
+        self.assertEqual(
+            spec['webpack_output_library'], 'calmjs.webpack.export')
 
     def test_create_spec_with_calmjs_webpack(self):
         with pretty_logging(stream=StringIO()) as stream:
@@ -41,6 +62,24 @@ class CliTestCase(unittest.TestCase):
             "automatically picked registries ['calmjs.module'] for "
             "building source map", log,
         )
+
+    def test_create_spec_with_calmjs_webpack_no_bootstrap(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(['calmjs.webpack'], use_calmjs_bootstrap=False)
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(
+            spec['calmjs_module_registry_names'], ['calmjs.module'])
+        self.assertEqual(
+            spec['source_package_names'], ['calmjs.webpack'])
+
+        log = stream.getvalue()
+        self.assertIn(
+            "automatically picked registries ['calmjs.module'] for "
+            "building source map", log,
+        )
+        self.assertEqual(
+            spec['webpack_output_library'], 'calmjs.webpack')
 
     def test_create_spec_with_calmjs_webpack_no_registry(self):
         with pretty_logging(stream=StringIO()) as stream:
