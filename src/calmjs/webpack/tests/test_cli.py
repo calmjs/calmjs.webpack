@@ -32,15 +32,17 @@ class CliTestCase(unittest.TestCase):
         self.assertIn('webpack_externals', spec)
         self.assertEqual(spec['webpack_output_library'], '__calmjs__')
 
-    def test_create_spec_empty_use_calmjs_bootstrap_disable(self):
+    def test_create_spec_empty_calmjs_compat_disable(self):
         with pretty_logging(stream=StringIO()) as stream:
-            spec = create_spec([], use_calmjs_bootstrap=False)
+            spec = create_spec([], calmjs_compat=False)
 
         self.assertNotIn('packages []', stream.getvalue())
         self.assertIn('no packages specified', stream.getvalue())
         self.assertIn(
-            "not using calmjs bootstrap; webpack.output.library set to "
-            "'calmjs.webpack.export'", stream.getvalue()
+            "calmjs_compat is disabled; webpack.output.library automatically "
+            "set to 'calmjs.webpack.export', derived from input package names "
+            "and export filename as the entry point is defined to be the "
+            "simplified calmjs bootstrap.", stream.getvalue()
         )
         self.assertTrue(isinstance(spec, Spec))
         self.assertNotIn('webpack_externals', spec)
@@ -52,6 +54,7 @@ class CliTestCase(unittest.TestCase):
             spec = create_spec(['calmjs.webpack'])
         self.assertTrue(isinstance(spec, Spec))
         self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec.get('webpack_entry_point'), '__calmjs__')
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module'])
         self.assertEqual(
@@ -63,9 +66,37 @@ class CliTestCase(unittest.TestCase):
             "building source map", log,
         )
 
+    def test_create_spec_with_calmjs_webpack_entry_point_warning(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(['calmjs.webpack'], webpack_entry_point='entry')
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec.get('webpack_entry_point'), 'entry')
+        self.assertEqual(
+            spec['calmjs_module_registry_names'], ['calmjs.module'])
+        self.assertEqual(
+            spec['source_package_names'], ['calmjs.webpack'])
+
+        log = stream.getvalue()
+        self.assertIn(
+            "webpack_entry_point and/or webpack_output_library is assigned "
+            "a different value than their defaults while calmjs_compat is set "
+            "to True ", log
+        )
+
+    def test_create_spec_with_calmjs_webpack_output_library_warning(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            create_spec(['calmjs.webpack'], webpack_output_library='entry')
+        log = stream.getvalue()
+        self.assertIn(
+            "webpack_entry_point and/or webpack_output_library is assigned "
+            "a different value than their defaults while calmjs_compat is set "
+            "to True ", log
+        )
+
     def test_create_spec_with_calmjs_webpack_no_bootstrap(self):
         with pretty_logging(stream=StringIO()) as stream:
-            spec = create_spec(['calmjs.webpack'], use_calmjs_bootstrap=False)
+            spec = create_spec(['calmjs.webpack'], calmjs_compat=False)
         self.assertTrue(isinstance(spec, Spec))
         self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
         self.assertEqual(
@@ -78,6 +109,7 @@ class CliTestCase(unittest.TestCase):
             "automatically picked registries ['calmjs.module'] for "
             "building source map", log,
         )
+        self.assertEqual(spec.get('webpack_entry_point'), '__calmjs__')
         self.assertEqual(
             spec['webpack_output_library'], 'calmjs.webpack')
 
@@ -114,6 +146,59 @@ class CliTestCase(unittest.TestCase):
             "using manually specified registries ['calmjs.module.tests'] for "
             "building source map", log,
         )
+
+    def test_create_spec_with_calmjs_webpack_entry_point_no_compat(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'], calmjs_compat=False,
+                webpack_entry_point='custom_webpack',
+            )
+        log = stream.getvalue()
+        self.assertNotIn(
+            "webpack_entry_point is ignored; set calmjs_compat to false "
+            "to enable manual webpack.entry specification",  log
+        )
+        self.assertIn(
+            "calmjs_compat is disabled; webpack.output.library automatically "
+            "set to 'custom_webpack' as this is the explicit webpack entry "
+            "point specified", log
+        )
+        self.assertEqual(spec['webpack_entry_point'], 'custom_webpack')
+        self.assertEqual(spec.get('webpack_output_library'), 'custom_webpack')
+
+    def test_create_spec_with_calmjs_webpack_output_library_no_compat(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'], calmjs_compat=False,
+                webpack_entry_point='custom_entry',
+                webpack_output_library='custom_library',
+            )
+        log = stream.getvalue()
+        self.assertNotIn(
+            "webpack_entry_point is ignored; set calmjs_compat to false "
+            "to enable manual webpack.entry specification", log
+        )
+        self.assertIn(
+            "webpack.output.library is manually set to 'custom_library'", log)
+        self.assertEqual(spec['webpack_entry_point'], 'custom_entry')
+        self.assertEqual(spec['webpack_output_library'], 'custom_library')
+
+    def test_create_spec_with_calmjs_webpack_output_library_disable(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'], calmjs_compat=False,
+                webpack_entry_point='custom_entry',
+                webpack_output_library=False,
+            )
+        log = stream.getvalue()
+        self.assertNotIn(
+            "webpack_entry_point is ignored; set calmjs_compat to false "
+            "to enable manual webpack.entry specification", log
+        )
+        self.assertIn(
+            "webpack.output.library is disabled; it will be unset.", log)
+        self.assertEqual(spec['webpack_entry_point'], 'custom_entry')
+        self.assertNotIn('webpack_output_library', spec)
 
     def test_toolchain_empty(self):
         # dict works well enough as a null toolchain

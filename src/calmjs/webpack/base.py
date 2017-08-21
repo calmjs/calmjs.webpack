@@ -9,12 +9,17 @@ from __future__ import unicode_literals
 
 # The spec key for storing the base webpack configuration.
 WEBPACK_CONFIG = 'webpack_config'
-# The key for the default module name, use as the webpack library name
-WEBPACK_DEFAULT_MODULE_NAME = 'webpack_default_module_name'
 # The key for the webpack.output.library
 WEBPACK_OUTPUT_LIBRARY = 'webpack_output_library'
 # The key for webpack externals
 WEBPACK_EXTERNALS = 'webpack_externals'
+# The key for specifying the raw entry point - the alias will need to be
+# resolved to the actual webpack_entry.
+WEBPACK_ENTRY_POINT = 'webpack_entry_point'
 
 # constants
 DEFAULT_BOOTSTRAP_EXPORT = '__calmjs__'
+DEFAULT_BOOTSTRAP_EXPORT_CONFIG = {
+    "root": DEFAULT_BOOTSTRAP_EXPORT,
+    "amd": DEFAULT_BOOTSTRAP_EXPORT,
+}

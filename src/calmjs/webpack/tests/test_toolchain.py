@@ -7,6 +7,7 @@ import os
 from os.path import exists
 from os.path import join
 
+from calmjs.utils import pretty_logging
 from calmjs.toolchain import Spec
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.npm import get_npm_version
@@ -14,6 +15,7 @@ from calmjs.npm import get_npm_version
 from calmjs.webpack import toolchain
 
 from calmjs.testing import utils
+from calmjs.testing import mocks
 
 
 class ToolchainBootstrapTestCase(unittest.TestCase):
@@ -124,7 +126,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack.assemble(spec)
 
         # TODO verify contents
-        self.assertTrue(exists(join(tmpdir, '__calmjs__.js')))
+        self.assertTrue(exists(join(tmpdir, '__calmjs_bootstrap__.js')))
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
@@ -137,15 +139,62 @@ class ToolchainUnitTestCase(unittest.TestCase):
             "path": tmpdir,
             "filename": "bundle.js",
             "libraryTarget": "umd",
-            "library": "__calmjs__",
             "umdNamedDefine": True,
         })
-        self.assertEqual(config_js['resolve']['alias'], {
-            '__calmjs__': join(tmpdir, '__calmjs__.js'),
-        })
-        self.assertEqual(config_js['entry'], join(tmpdir, '__calmjs__.js'))
+        self.assertEqual(config_js['resolve']['alias'], {})
+        self.assertEqual(
+            config_js['entry'], join(tmpdir, '__calmjs_bootstrap__.js'))
 
-    def test_prepare_assemble(self):
+    def test_assemble_explicit_entry(self):
+        tmpdir = utils.mkdtemp(self)
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            # mock a webpack executable.
+            pass
+
+        spec = Spec(
+            # this is not written
+            export_target=join(tmpdir, 'bundle.js'),
+            build_dir=tmpdir,
+            transpiled_modpaths={
+                'example/module': 'example/module'
+            },
+            bundled_modpaths={},
+            transpiled_targetpaths={
+                'example/module': 'example/module.js',
+            },
+            bundled_targetpaths={},
+            export_module_names=[],
+            webpack_entry_point='example/module',
+        )
+
+        webpack = toolchain.WebpackToolchain()
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+        webpack.prepare(spec)
+        webpack.assemble(spec)
+
+        # no bootstrap module with an explicit entry point
+        self.assertFalse(exists(join(tmpdir, '__calmjs_bootstrap__.js')))
+        self.assertTrue(exists(join(tmpdir, 'config.js')))
+        self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
+
+        with open(join(tmpdir, 'config.js')) as fd:
+            # strip off the header and footer
+            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+
+        self.assertEqual(config_js['output'], {
+            "path": tmpdir,
+            "filename": "bundle.js",
+            "libraryTarget": "umd",
+            "umdNamedDefine": True,
+        })
+        module_fn = join(tmpdir, 'example', 'module.js')
+        self.assertEqual(config_js['resolve']['alias'], {
+            'example/module': module_fn,
+        })
+        self.assertEqual(config_js['entry'], module_fn)
+
+    def test_prepare_assemble_standard_calmjs_compat(self):
         tmpdir = utils.mkdtemp(self)
 
         with open(join(tmpdir, 'webpack'), 'w'):
@@ -177,6 +226,16 @@ class ToolchainUnitTestCase(unittest.TestCase):
                 'bundled_dir',
                 'bundled_pkg',
             ],
+            # note that this is the key that mark the build as standard
+            # calmjs compatible mode for the generation of the bootstrap
+            # lookup module.
+            webpack_output_library='__calmjs__',
+            # also that the externals _must_ be defined exactly as
+            # required
+            webpack_externals={'__calmjs__': {
+                "root": '__calmjs__',
+                "amd": '__calmjs__',
+            }},
         )
 
         webpack = toolchain.WebpackToolchain()
@@ -194,17 +253,242 @@ class ToolchainUnitTestCase(unittest.TestCase):
         with open(config_js['entry']) as fd:
             self.assertIn('require("example/module")', fd.read())
 
-        self.maxDiff = None
         self.assertEqual(config_js['resolve']['alias'], {
-            '__calmjs__': join(tmpdir, '__calmjs__.js'),
             'example/module': join(tmpdir, 'example', 'module.js'),
             'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
             'bundled_dir': join(tmpdir, 'bundled_dir'),
         })
 
-        # Also verify the generated __calmjs__ js module.
-        with open(join(tmpdir, '__calmjs__.js')) as fd:
+        # Also verify the generated __calmjs_bootstrap__ js module.
+        with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
             self.assertIn(
-                '"example/module": require("example/module")', calmjs_module)
+                '["example/module"] = require("example/module")',
+                calmjs_module
+            )
+            self.assertIn('calmjs_bootstrap.modules', calmjs_module)
+
+    def test_prepare_assemble_calmjs_bootstrap_explicit(self):
+        tmpdir = utils.mkdtemp(self)
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            # mock a webpack executable.
+            pass
+
+        # note that all *_targetpaths are relative to the build dir.
+        spec = Spec(
+            # export_target will not be written.
+            export_target=join(tmpdir, 'bundle.js'),
+            build_dir=tmpdir,
+            transpiled_modpaths={
+                'example/module': 'example/module'
+            },
+            bundled_modpaths={
+                'bundled_pkg': 'bundled_pkg',
+            },
+            transpiled_targetpaths={
+                'example/module': 'example/module.js',
+            },
+            bundled_targetpaths={
+                'bundled_pkg': 'bundled_pkg.js',
+                # note that this is probably meaningless in the context
+                # of webpack.
+                'bundled_dir': 'bundled_dir',
+            },
+            export_module_names=[
+                'example/module',
+                'bundled_dir',
+                'bundled_pkg',
+            ],
+            # note that webpack_output_library is defined to use the
+            # complete module without the externals being defined, this
+            # will trigger an exception
+            webpack_output_library='__calmjs__',
+        )
+
+        webpack = toolchain.WebpackToolchain()
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+        webpack.prepare(spec)
+        # skip the compile step as those entries are manually applied.
+
+        with pretty_logging(
+                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+            with self.assertRaises(ValueError):
+                webpack.assemble(spec)
+
+        self.assertIn(
+            "webpack.externals does not have '__calmjs__' defined for "
+            "the complete calmjs webpack bootstrap module",
+            s.getvalue())
+        self.assertIn(
+            "aborting export to webpack.output.library as '__calmjs__'",
+            s.getvalue())
+
+    def test_prepare_assemble_calmjs_export_only(self):
+        tmpdir = utils.mkdtemp(self)
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            # mock a webpack executable.
+            pass
+
+        # note that all *_targetpaths are relative to the build dir.
+        spec = Spec(
+            # export_target will not be written.
+            export_target=join(tmpdir, 'bundle.js'),
+            build_dir=tmpdir,
+            transpiled_modpaths={
+                'example/module': 'example/module'
+            },
+            bundled_modpaths={
+                'bundled_pkg': 'bundled_pkg',
+            },
+            transpiled_targetpaths={
+                'example/module': 'example/module.js',
+            },
+            bundled_targetpaths={
+                'bundled_pkg': 'bundled_pkg.js',
+                # note that this is probably meaningless in the context
+                # of webpack.
+                'bundled_dir': 'bundled_dir',
+            },
+            export_module_names=[
+                'example/module',
+                'bundled_dir',
+                'bundled_pkg',
+            ],
+            webpack_output_library='example',
+        )
+
+        webpack = toolchain.WebpackToolchain()
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+        webpack.prepare(spec)
+        # skip the compile step as those entries are manually applied.
+
+        with pretty_logging(
+                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        # this is the default, as the above spec does not define this.
+        self.assertIn(
+            "spec webpack_entry_point defined to be '__calmjs__'",
+            s.getvalue())
+        self.assertIn(
+            "webpack.externals does not have '__calmjs__' defined for "
+            "the complete calmjs webpack bootstrap module",
+            s.getvalue())
+
+        self.assertTrue(exists(join(tmpdir, 'config.js')))
+        with open(join(tmpdir, 'config.js')) as fd:
+            # strip off the header and footer
+            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+        self.assertEqual(config_js, spec['webpack_config'])
+
+        with open(config_js['entry']) as fd:
+            self.assertIn('require("example/module")', fd.read())
+
+        self.assertEqual(config_js['resolve']['alias'], {
+            'example/module': join(tmpdir, 'example', 'module.js'),
+            'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
+            'bundled_dir': join(tmpdir, 'bundled_dir'),
+        })
+
+        # Also verify the generated __calmjs_bootstrap__ js module.
+        with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
+            calmjs_module = fd.read()
+            # should probably use the parser in slimit for verification
+            self.assertIn(
+                '["example/module"] = require("example/module")',
+                calmjs_module
+            )
+            self.assertNotIn('calmjs_bootstrap.modules', calmjs_module)
+
+    def test_prepare_assemble_webpack_standard(self):
+        # without calmjs compatibility
+        tmpdir = utils.mkdtemp(self)
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            # mock a webpack executable.
+            pass
+
+        # note that all *_targetpaths are relative to the build dir.
+        spec = Spec(
+            # export_target will not be written.
+            export_target=join(tmpdir, 'bundle.js'),
+            build_dir=tmpdir,
+            transpiled_modpaths={
+                'example/module': 'example/module'
+            },
+            bundled_modpaths={
+                'bundled_pkg': 'bundled_pkg',
+            },
+            transpiled_targetpaths={
+                'example/module': 'example/module.js',
+            },
+            bundled_targetpaths={
+                'bundled_pkg': 'bundled_pkg.js',
+                # note that this is probably meaningless in the context
+                # of webpack.
+                'bundled_dir': 'bundled_dir',
+            },
+            export_module_names=[
+                'example/module',
+                'bundled_dir',
+                'bundled_pkg',
+            ],
+            # again, the externals be defined exactly as required
+            webpack_externals={
+                '__calmjs__': {
+                    'root': '__calmjs__',
+                    'amd': '__calmjs__',
+                },
+            },
+            # however, this is redefined.
+            webpack_output_library='example',
+        )
+
+        webpack = toolchain.WebpackToolchain()
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+        webpack.prepare(spec)
+        # skip the compile step as those entries are manually applied.
+
+        with pretty_logging(
+                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        self.assertIn(
+            "webpack.externals defined '__calmjs__' with value that enables "
+            "the calmjs webpack bootstrap module; generating module "
+            "with the complete bootstrap template",
+            s.getvalue())
+        self.assertIn(
+            "exporting complete calmjs bootstrap module with "
+            "webpack.output.library as 'example' (expected '__calmjs__')",
+            s.getvalue())
+
+        self.assertTrue(exists(join(tmpdir, 'config.js')))
+        with open(join(tmpdir, 'config.js')) as fd:
+            # strip off the header and footer
+            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+        self.assertEqual(config_js, spec['webpack_config'])
+
+        with open(config_js['entry']) as fd:
+            self.assertIn('require("example/module")', fd.read())
+
+        self.maxDiff = None
+        self.assertEqual(config_js['resolve']['alias'], {
+            'example/module': join(tmpdir, 'example', 'module.js'),
+            'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
+            'bundled_dir': join(tmpdir, 'bundled_dir'),
+        })
+
+        # Also verify the generated __calmjs_bootstrap__ js module.
+        with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
+            calmjs_module = fd.read()
+            # should probably use the parser in slimit for verification
+            self.assertIn(
+                '["example/module"] = require("example/module")',
+                calmjs_module
+            )
+            # the complete bootstrap module is generated anyway.
+            self.assertIn('calmjs_bootstrap.modules', calmjs_module)

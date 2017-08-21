@@ -41,7 +41,10 @@ from .exc import WebpackExitError
 
 from .base import WEBPACK_CONFIG
 from .base import WEBPACK_EXTERNALS
-from .base import WEBPACK_DEFAULT_MODULE_NAME
+from .base import WEBPACK_OUTPUT_LIBRARY
+from .base import WEBPACK_ENTRY_POINT
+from .base import DEFAULT_BOOTSTRAP_EXPORT
+from .base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +54,7 @@ _PLATFORM_SPECIFIC_RUNTIME = {
     'win32': 'webpack.cmd',
 }
 _DEFAULT_RUNTIME = 'webpack'
-_DEFAULT_MODULE_NAME = '__calmjs__'
+_DEFAULT_BOOTSTRAP_FILENAME = '__calmjs_bootstrap__.js'
 
 
 # TODO figure out how to deal with chunking configuration
@@ -69,15 +72,14 @@ module.exports.plugins = [
 ];
 """
 
-# TODO also figure out whether or not/how to best allow the __calmjs__
-# be additionally applied.
-# XXX most direct way is to manipulate window.__calmjs__, however this
-# should be checked to be the right way.  Also this assumes the defaults
-# have been used.
-_WEBPACK_CALMJS_MODULE_TEMPLATE = """'use strict';
-exports.modules = {
+# TODO document how this will ONLY work for libraryTarget: "window", but
+# the target will still be specified as umd to simplify interrogation
+# of the generated bundles.
+_WEBPACK_CALMJS_BOOTSTRAP_MODULE_TEMPLATE = """'use strict';
+
+var calmjs_bootstrap = require('__calmjs__') || {};
+exports.modules = calmjs_bootstrap.modules || {};
 %s
-};
 
 exports.require = function(modules, f) {
     if (modules.map) {
@@ -90,6 +92,13 @@ exports.require = function(modules, f) {
         return exports.modules[modules];
     }
 };
+"""
+
+# only exports _all_ modules
+_WEBPACK_CALMJS_EXPORT_MODULE_TEMPLATE = """'use strict';
+
+exports.modules = {};
+%s
 """
 
 
@@ -175,13 +184,6 @@ class WebpackToolchain(Toolchain):
         spec[EXPORT_TARGET] = self.join_cwd(spec[EXPORT_TARGET])
         spec[CONFIG_JS_FILES] = [spec['webpack_config_js']]
 
-        if WEBPACK_DEFAULT_MODULE_NAME not in spec:
-            spec[WEBPACK_DEFAULT_MODULE_NAME] = _DEFAULT_MODULE_NAME
-
-        logger.debug(
-            'webpack.output.library = %s', json.dumps(
-                spec[WEBPACK_DEFAULT_MODULE_NAME]))
-
         if not isdir(dirname(spec[EXPORT_TARGET])):
             raise WebpackRuntimeError(
                 "'%s' will not be writable" % EXPORT_TARGET)
@@ -197,25 +199,26 @@ class WebpackToolchain(Toolchain):
             raise WebpackRuntimeError(
                 "'%s' must not be same as '%s'" % (EXPORT_TARGET, matched[0]))
 
-        # TODO setup dev advice when implemented.
-        # webpack_dev_advice(spec)
+        spec[WEBPACK_EXTERNALS] = spec.get(WEBPACK_EXTERNALS, {})
 
-    def generate_lookup_module(self, spec):
+    def generate_lookup_module(self, spec, template):
         """
         Webpack does not provide an extensible named module system, so
         we have to build our own here...
         """
 
         exported = [
-            "    %(module)s: require(%(module)s)," % {'module': json.dumps(m)}
+            "exports.modules[%(module)s] = require(%(module)s);" % {
+                'module': json.dumps(m)
+            }
             for m in spec[EXPORT_MODULE_NAMES]
             if '!' not in m  # lazily filter out loader modules
         ]
 
         export_module_path = join(
-            spec[BUILD_DIR], spec[WEBPACK_DEFAULT_MODULE_NAME] + '.js')
+            spec[BUILD_DIR], _DEFAULT_BOOTSTRAP_FILENAME)
         with codecs.open(export_module_path, 'w', encoding='utf8') as fd:
-            fd.write(_WEBPACK_CALMJS_MODULE_TEMPLATE % '\n'.join(exported))
+            fd.write(template % '\n'.join(exported))
         return export_module_path
 
     def assemble(self, spec):
@@ -230,8 +233,7 @@ class WebpackToolchain(Toolchain):
             'output': {
                 'path': dirname(spec[EXPORT_TARGET]),
                 'filename': basename(spec[EXPORT_TARGET]),
-                'library': spec[WEBPACK_DEFAULT_MODULE_NAME],
-                # TODO determine publicPath
+                # TODO determine if publicPath is needed.
 
                 # XXX Currently using magic values.  The library target
                 # should be configured, along with umdNamedDefine also
@@ -243,11 +245,12 @@ class WebpackToolchain(Toolchain):
             'resolve': {},
             'externals': spec.get(WEBPACK_EXTERNALS, {}),
         }
+        if WEBPACK_OUTPUT_LIBRARY in spec:
+            webpack_config['output']['library'] = spec[WEBPACK_OUTPUT_LIBRARY]
 
-        webpack_config['entry'] = self.generate_lookup_module(spec)
-        webpack_config['resolve']['alias'] = alias = {
-            spec[WEBPACK_DEFAULT_MODULE_NAME]: webpack_config['entry'],
-        }
+        # set up alias lookup mapping.
+        webpack_config['resolve']['alias'] = alias = {}
+
         # generate the aliases - yes, we include the bundled sources to
         # be explicit as there are cases where an alternative bundle may
         # be specified using optional advices.
@@ -262,6 +265,64 @@ class WebpackToolchain(Toolchain):
                     continue
                 # the alias must point to the full path.
                 alias[modname] = join(spec[BUILD_DIR], *target.split('/'))
+
+        # It is assumed that if WEBPACK_ENTRY_POINT is defined, it will
+        # resolve into a target through the generated alias mapping.
+        # Otherwise, assume one of the default calmjs style exports.
+        if (spec.get(WEBPACK_ENTRY_POINT, DEFAULT_BOOTSTRAP_EXPORT) ==
+                DEFAULT_BOOTSTRAP_EXPORT):
+            # now resolve whether the webpack.externals has been defined
+            # in a manner that requires the complete lookup module
+            logger.info(
+                "spec webpack_entry_point defined to be '%s'",
+                DEFAULT_BOOTSTRAP_EXPORT
+            )
+            if (spec[WEBPACK_EXTERNALS].get(DEFAULT_BOOTSTRAP_EXPORT) ==
+                    DEFAULT_BOOTSTRAP_EXPORT_CONFIG):
+                logger.info(
+                    "webpack.externals defined '%s' with value that enables "
+                    "the calmjs webpack bootstrap module; generating module "
+                    "with the complete bootstrap template",
+                    DEFAULT_BOOTSTRAP_EXPORT
+                )
+                webpack_config['entry'] = self.generate_lookup_module(
+                    spec, _WEBPACK_CALMJS_BOOTSTRAP_MODULE_TEMPLATE)
+                if (spec.get(WEBPACK_OUTPUT_LIBRARY) !=
+                        DEFAULT_BOOTSTRAP_EXPORT):
+                    # a simple warning will do, as this may only be an
+                    # inconvenience.
+                    logger.warning(
+                        "exporting complete calmjs bootstrap module with "
+                        "webpack.output.library as '%s' (expected '%s')",
+                        spec.get(WEBPACK_OUTPUT_LIBRARY),
+                        DEFAULT_BOOTSTRAP_EXPORT,
+                    )
+            else:
+                logger.info(
+                    "webpack.externals does not have '%s' defined for "
+                    "the complete calmjs webpack bootstrap module",
+                    DEFAULT_BOOTSTRAP_EXPORT
+                )
+                webpack_config['entry'] = self.generate_lookup_module(
+                    spec, _WEBPACK_CALMJS_EXPORT_MODULE_TEMPLATE)
+                if (spec.get(WEBPACK_OUTPUT_LIBRARY) ==
+                        DEFAULT_BOOTSTRAP_EXPORT):
+                    logger.critical(
+                        "cowardly aborting export to webpack.output.library "
+                        "as '%s' without the complete bootstrap; generating "
+                        "module with export only template",
+                        DEFAULT_BOOTSTRAP_EXPORT,
+                    )
+                    raise ValueError(
+                        "aborting export of webpack.output.library as '%s' "
+                        "with incomplete settings and bootstrap module" %
+                        DEFAULT_BOOTSTRAP_EXPORT
+                    )
+        else:
+            # need to manually resolve the entry
+            # if externals has been defined, use the complete lookup module
+            # otherwise, use the simplified version.
+            webpack_config['entry'] = alias[spec[WEBPACK_ENTRY_POINT]]
 
         # write out the configuration file
         with codecs.open(
