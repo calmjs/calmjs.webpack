@@ -18,6 +18,10 @@ WEBPACK_EXTERNALS = 'webpack_externals'
 WEBPACK_ENTRY_POINT = 'webpack_entry_point'
 
 # constants
+
+# The calmjs loader name
+DEFAULT_CALMJS_EXPORT_NAME = '__calmjs_loader__'
+# The webpack.library.export default name
 DEFAULT_BOOTSTRAP_EXPORT = '__calmjs__'
 DEFAULT_BOOTSTRAP_EXPORT_CONFIG = {
     "root": DEFAULT_BOOTSTRAP_EXPORT,

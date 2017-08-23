@@ -10,6 +10,7 @@ from calmjs.parse.asttypes import Arguments
 from calmjs.parse.asttypes import Identifier
 from calmjs.parse.asttypes import String
 
+from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.interrogation import visitor
 from calmjs.webpack.visitor import ReplacementVisitor
 
@@ -53,7 +54,7 @@ def create_calmjs_require(node):
         args=node.args,
         identifier=DotAccessor(
             node=FunctionCall(
-                args=Arguments([String("'__calmjs__'")]),
+                args=Arguments([String("'%s'" % DEFAULT_CALMJS_EXPORT_NAME)]),
                 identifier=Identifier(value='require'),
             ),
             # preserve the original identifier within the DotAccessor itself

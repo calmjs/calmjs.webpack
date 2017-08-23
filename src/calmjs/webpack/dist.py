@@ -55,7 +55,17 @@ calmjs_module_registry_methods = {
 
 extras_calmjs_methods = {
     'all': flatten_extras_calmjs,
+    # this may be misleading?  Perhaps make a name that makes the usage
+    # and export of artifacts sourced from node_modules that are to be
+    # included directly, and ensure that if calmjs is used to build it,
+    # it be exported as part of the __calmjs__.modules, or also generate
+    # a completely separate thing.
     'explicit': get_extras_calmjs,
+    # XXX maybe 'none' into 'external'?
+    # if 'none' is used, the default node_modules lookup behavior will
+    # be used to get the module on require to include into the generated
+    # artifact.
+    # TODO: should define a way to declare explicit externals.
     'none': map_none,
 }
 

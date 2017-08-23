@@ -33,6 +33,7 @@ from calmjs.parse.unparsers.es5 import pretty_printer
 from calmjs.parse import sourcemap
 
 from calmjs.webpack.manipulation import convert_dynamic_require
+from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 
 from .env import webpack_env
 from .env import NODE_MODULES
@@ -54,8 +55,11 @@ _PLATFORM_SPECIFIC_RUNTIME = {
     'win32': 'webpack.cmd',
 }
 _DEFAULT_RUNTIME = 'webpack'
+# this is also the name of the entry point, i.e. webpack.entry
 _DEFAULT_BOOTSTRAP_FILENAME = '__calmjs_bootstrap__.js'
-
+# name for the extended loader module, usually will be working in
+# conjunction with DEFAULT_CALMJS_EXPORT_NAME
+_DEFAULT_LOADER_FILENAME = '__calmjs_loader__.js'
 
 # TODO figure out how to deal with chunking configuration
 _WEBPACK_CONFIG_TEMPLATE = """'use strict';
@@ -72,33 +76,65 @@ module.exports.plugins = [
 ];
 """
 
-# TODO document how this will ONLY work for libraryTarget: "window", but
+# TODO document how the custom loader will ONLY work for
+# libraryTarget: "window", but
 # the target will still be specified as umd to simplify interrogation
 # of the generated bundles.
-_WEBPACK_CALMJS_BOOTSTRAP_MODULE_TEMPLATE = """'use strict';
+# TODO figure out if this will work with require('globals'), for the
+# commonjs support(?)
+
+# the most basic version: only import the modules (via require); this
+# is used when webpack.output.library is undefined (as the default
+# behavior is to have everything exported, and in root mode this can
+# be potentially dangerous when it reassigns values at root.
+_WEBPACK_ENTRY_CALMJS_LOAD_ONLY_TEMPLATE = """'use strict';
+
+%s
+""", "require(%(module)s);"
+
+# the simple export version: only the modules get exported
+_WEBPACK_ENTRY_CALMJS_EXPORT_ONLY_TEMPLATE = """'use strict';
+
+exports.modules = {};
+%s
+""", "exports.modules[%(module)s] = require(%(module)s);"
+
+# the complete export version, but cannot function as the entry point;
+# require the export loader below; works as a loader module
+_WEBPACK_CALMJS_MODULE_LOADER_TEMPLATE = """'use strict';
 
 var calmjs_bootstrap = require('__calmjs__') || {};
-exports.modules = calmjs_bootstrap.modules || {};
+var externals = calmjs_bootstrap.modules || {};
+exports.modules = {};
 %s
 
 exports.require = function(modules, f) {
     if (modules.map) {
         f.apply(null, modules.map(function(m) {
-            return exports.modules[m];
+            return exports.modules[m] || externals[m];
         }));
     }
     else {
         // assuming the synchronous version
-        return exports.modules[modules];
+        return exports.modules[modules] || externals[modules];
     }
 };
-"""
+""", "exports.modules[%(module)s] = require(%(module)s);"
 
-# only exports _all_ modules
-_WEBPACK_CALMJS_EXPORT_MODULE_TEMPLATE = """'use strict';
+# the more complicated version: load both the exported module along with
+# the loader module, and assemble this and export for the pass through
+# effect.
+_WEBPACK_ENTRY_CALMJS_MODULE_EXPORT_TEMPLATE = """'use strict';
 
-exports.modules = {};
-%s
+var calmjs_loader = require('__calmjs_loader__')
+var calmjs_bootstrap = require('__calmjs__') || {};
+var external_modules = calmjs_bootstrap.modules || {};
+
+exports.require = calmjs_loader.require;
+exports.modules = external_modules;
+for (var k in calmjs_loader.modules) {
+    exports.modules[k] = calmjs_loader.modules[k];
+}
 """
 
 
@@ -201,24 +237,35 @@ class WebpackToolchain(Toolchain):
 
         spec[WEBPACK_EXTERNALS] = spec.get(WEBPACK_EXTERNALS, {})
 
-    def generate_lookup_module(self, spec, template):
+    def write_lookup_module(self, spec, target, template, requireline):
         """
         Webpack does not provide an extensible named module system, so
         we have to build our own here...
         """
 
         exported = [
-            "exports.modules[%(module)s] = require(%(module)s);" % {
+            requireline % {
                 'module': json.dumps(m)
             }
             for m in spec[EXPORT_MODULE_NAMES]
             if '!' not in m  # lazily filter out loader modules
+            # TODO fix this when loader modules are supported.
         ]
 
-        export_module_path = join(
-            spec[BUILD_DIR], _DEFAULT_BOOTSTRAP_FILENAME)
+        export_module_path = join(spec[BUILD_DIR], target)
         with codecs.open(export_module_path, 'w', encoding='utf8') as fd:
             fd.write(template % '\n'.join(exported))
+        return export_module_path
+
+    def write_bootstrap_module(
+            self, spec, template=_WEBPACK_ENTRY_CALMJS_MODULE_EXPORT_TEMPLATE):
+        """
+        Write a simple bootstrap module
+        """
+
+        export_module_path = join(spec[BUILD_DIR], _DEFAULT_BOOTSTRAP_FILENAME)
+        with codecs.open(export_module_path, 'w', encoding='utf8') as fd:
+            fd.write(template)
         return export_module_path
 
     def assemble(self, spec):
@@ -285,8 +332,15 @@ class WebpackToolchain(Toolchain):
                     "with the complete bootstrap template",
                     DEFAULT_BOOTSTRAP_EXPORT
                 )
-                webpack_config['entry'] = self.generate_lookup_module(
-                    spec, _WEBPACK_CALMJS_BOOTSTRAP_MODULE_TEMPLATE)
+                # assign the internal loader to the alias
+                alias[DEFAULT_CALMJS_EXPORT_NAME] = self.write_lookup_module(
+                    spec, _DEFAULT_LOADER_FILENAME,
+                    *_WEBPACK_CALMJS_MODULE_LOADER_TEMPLATE
+                )
+                # the bootstrap module will be the entry point in this
+                # case.
+                webpack_config['entry'] = self.write_bootstrap_module(spec)
+
                 if (spec.get(WEBPACK_OUTPUT_LIBRARY) !=
                         DEFAULT_BOOTSTRAP_EXPORT):
                     # a simple warning will do, as this may only be an
@@ -300,11 +354,25 @@ class WebpackToolchain(Toolchain):
             else:
                 logger.info(
                     "webpack.externals does not have '%s' defined for "
-                    "the complete calmjs webpack bootstrap module",
+                    "the complete calmjs webpack bootstrap module; "
+                    "generating simple export of modules",
                     DEFAULT_BOOTSTRAP_EXPORT
                 )
-                webpack_config['entry'] = self.generate_lookup_module(
-                    spec, _WEBPACK_CALMJS_EXPORT_MODULE_TEMPLATE)
+
+                # one key bit: to avoid the default webpack behavior of
+                # potentially overriding values on the root node (say,
+                # there exists window.modules already by some other
+                # package), only use the template that exports to module
+                # if that is defined; otherwise simply use the load only
+                # template that will just require the selected modules.
+                if spec.get(WEBPACK_OUTPUT_LIBRARY):
+                    template = _WEBPACK_ENTRY_CALMJS_EXPORT_ONLY_TEMPLATE
+                else:
+                    template = _WEBPACK_ENTRY_CALMJS_LOAD_ONLY_TEMPLATE
+
+                # the resulting file is the entry point.
+                webpack_config['entry'] = self.write_lookup_module(
+                    spec, _DEFAULT_BOOTSTRAP_FILENAME, *template)
                 if (spec.get(WEBPACK_OUTPUT_LIBRARY) ==
                         DEFAULT_BOOTSTRAP_EXPORT):
                     logger.critical(

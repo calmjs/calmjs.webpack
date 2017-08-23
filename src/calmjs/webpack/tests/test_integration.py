@@ -39,8 +39,22 @@ def skip_full_toolchain_test():  # pragma: no cover
 def run_node(src, *requires):
     # cross platform node runner with require paths.
     # escape backslashes in require paths.
-    return node(src % ('\n'.join('require(%s);' % json.dumps(
+    return node(dedent(src) % ('\n'.join('require(%s);' % json.dumps(
         r) for r in requires)))
+
+
+def run_webpack(script, *artifacts):
+    # this is rather webpack specific, and here this emulate the global
+    # environment within a browser.
+
+    stream = StringIO()
+    stream.write("var window = new (function(require, exports, module) {\n")
+    for artifact in artifacts:
+        with open(artifact) as fd:
+            stream.write(fd.read())
+    stream.write("})();\n")
+    stream.write(dedent(script))
+    return node(stream.getvalue())
 
 
 def cls_setup_webpack_example_package(cls):
@@ -108,6 +122,15 @@ def cls_setup_webpack_example_package(cls):
             'exports.clean = function(arg) {\n'
             '    return $(arg);\n'
             '};\n'
+        )
+
+    # a module that simply prints hello
+    hello_js = join(cls._ep_root, 'hello.js')
+    with open(hello_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'console.log("hello");\n'
         )
 
     # a module with dynamic require
@@ -290,11 +313,29 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         cli.default_toolchain.env_path = None
         cli.default_toolchain.env_path = self._dt_node_path
 
-    def test_webpack_toolchain_standard_only(self):
+    # helper to set up "fake_modules" as a mock to "node_modules"
+    def setup_runtime_main_env(self):
+        # create a new working directory to install our current site
+        utils.remember_cwd(self)
+        current_dir = utils.mkdtemp(self)
+        target_file = join(current_dir, 'bundle.js')
+
+        # invoke installation of "fake_modules"
+        copytree(
+            join(self.dist_dir, 'fake_modules'),
+            join(current_dir, 'fake_modules'),
+        )
+
+        return current_dir, target_file
+
+    def test_webpack_toolchain_barebone(self):
+        # this is the most barebone, minimum execution with only just
+        # the required spec keys.
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
-        transpile_sourcepath = {}
-        transpile_sourcepath.update(self._example_package_map)
+        transpile_sourcepath = {
+            'hello': join(self._ep_root, 'hello.js'),
+        }
         bundle_sourcepath = {}
         export_target = join(bundle_dir, 'example.package.js')
 
@@ -310,16 +351,102 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         self.assertTrue(exists(export_target))
 
-        # verify that the bundle works with node, with the usage of the
-        # bundle through the __calmjs__ entry module
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var main = calmjs.require("example/package/main");\n'
-            'main.main();\n',
-            export_target,
+        # automatically generated bootstrap module
+        self.assertTrue(exists(join(build_dir, '__calmjs_bootstrap__.js')))
+
+        # only load the webpack through the standard chain; also check
+        # that it assigned nothing (root/window should remain unchanged)
+        stdout, stderr = run_webpack(
+            'console.log(Object.keys(window).length);', export_target)
+        self.assertEqual(stderr, '')
+        # the entire webpack should have been executed, result in this.
+        self.assertEqual(stdout, 'hello\n0\n')
+
+        # likewise for the standard node/commonjs import, that nothing
+        # got exported due to how webpack collapse the generation in the
+        # umd template for maximum confusion.
+        stdout, stderr = run_node("""
+        var artifact = %s;
+        console.log(Object.keys(artifact).length);
+        """, export_target)
+        self.assertEqual(stderr, '')
+        # the entire webpack should have been executed, result in this.
+        self.assertEqual(stdout, 'hello\n0\n')
+
+    def test_webpack_toolchain_barebone_explicit_entry(self):
+        # this is one where an explicit entry point be provided,
+        # skipping the automatic module generation
+        #
+        # the required spec keys.
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        transpile_sourcepath = {
+            'hello': join(self._ep_root, 'hello.js'),
+        }
+        bundle_sourcepath = {}
+        export_target = join(bundle_dir, 'example.package.js')
+
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_sourcepath=transpile_sourcepath,
+            bundle_sourcepath=bundle_sourcepath,
+            export_target=export_target,
+            build_dir=build_dir,
+            webpack_entry_point='hello',
         )
+        webpack(spec)
+
+        # bootstrap module should not have been generated
+        self.assertFalse(exists(join(build_dir, '__calmjs_bootstrap__.js')))
+
+        # the 'hello' text is simply printed through console.log when
+        # the artifact is loaded.
+        stdout, stderr = run_webpack('', export_target)
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, 'hello\n')
+
+    def test_webpack_toolchain_standard_output_library(self):
+        # standard execution, with an explicitly defined output library
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        transpile_sourcepath = {}
+        transpile_sourcepath.update(self._example_package_map)
+        bundle_sourcepath = {}
+        export_target = join(bundle_dir, 'example.package.js')
+
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_sourcepath=transpile_sourcepath,
+            bundle_sourcepath=bundle_sourcepath,
+            export_target=export_target,
+            build_dir=build_dir,
+            webpack_output_library='example.package',
+        )
+        webpack(spec)
+
+        self.assertTrue(exists(export_target))
+
+        # the library is now placed under that name
+        stdout, stderr = run_webpack("""
+        var modules = window["example.package"].modules;
+        var main = modules["example/package/main"];
+        main.main();
+        """, export_target)
 
         self.assertEqual(stderr, '')
+        self.assertEqual(stdout, '2\n4\n')
+
+        # the standard require/commonjs loading should work, as it
+        # should not have any externals.
+        stdout, stderr = run_node("""
+        var artifact = %s
+        var main = artifact.modules["example/package/main"];
+        main.main();
+        """, export_target)
+        self.assertEqual(stderr, '')
+        # the entire webpack should have been executed, result in this.
         self.assertEqual(stdout, '2\n4\n')
 
     def test_webpack_toolchain_with_bundled(self):
@@ -344,6 +471,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             bundle_sourcepath=bundle_sourcepath,
             export_target=export_target,
             build_dir=build_dir,
+            webpack_output_library='example',
         )
         webpack(spec)
 
@@ -351,12 +479,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var bare = calmjs.require("example/package/bare");\n'
-            'console.log(bare.clean(1));\n',
-            export_target,
-        )
+        stdout, stderr = run_node("""
+        var artifact = %s
+        var bare = artifact.modules["example/package/bare"];
+        console.log(bare.clean(1));
+        """, export_target)
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '[ 1 ]\n')
@@ -390,19 +517,24 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             bundle_sourcepath=bundle_sourcepath,
             export_target=export_target,
             build_dir=build_dir,
+            # must use the explicit settings
+            webpack_output_library='__calmjs__',
+            # also that the externals _must_ be defined exactly as
+            # required
+            webpack_externals={'__calmjs__': {
+                "root": '__calmjs__',
+                "amd": '__calmjs__',
+            }},
         )
         webpack(spec)
-
         self.assertTrue(exists(export_target))
 
-        # verify that the bundle works with node, with the usage of the
-        # bundle through the __calmjs__ entry module
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var dynamic = calmjs.require("example/package/dynamic");\n'
-            'console.log(dynamic.check(1, 2));\n',
-            export_target,
-        )
+        # verify that the bundle works with with the webpack runner.
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var dynamic = calmjs.require("example/package/dynamic");
+        console.log(dynamic.check(1, 2));
+        """, export_target)
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '3\n')
@@ -420,9 +552,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         os.chdir(working_dir)
 
         # Finally, install dependencies for site in the new directory
-        # normally this might be done
-        # npm = Driver()
-        # npm.npm_install('site', production=True)
+        # normally this might be done:
+        #
+        #     npm = Driver()
+        #     npm.npm_install('site', production=True)
+        #
         # However, since we have our set of fake_modules, just install
         # by copying the fake_modules dir from dist_dir into the current
         # directory.
@@ -444,12 +578,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # The execution should then work as expected on the bundle we
         # have.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var datepicker = calmjs.require("widget/datepicker");\n'
-            'console.log(datepicker.DatePickerWidget);\n',
-            spec['export_target'],
-        )
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var datepicker = calmjs.require("widget/datepicker");
+        console.log(datepicker.DatePickerWidget);
+        """, spec['export_target'])
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'widget.datepicker.DatePickerWidget\n')
@@ -474,13 +607,54 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         os.chdir(self._env_root)
 
         # The execution should then work as expected on the bundle we
-        # have.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var rpclib = calmjs.require("service/rpc/lib");\n'
-            'console.log(rpclib.Library);\n',
-            spec['export_target'],
+        # have, and the __calmjs__ bootstrap be exported onto window.
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var rpclib = calmjs.require("service/rpc/lib");
+        console.log(rpclib.Library);
+        """, spec['export_target'])
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, 'service.rpc.lib.Library\n')
+
+    def test_cli_compile_all_service_no_calmjs_bootstrap(self):
+        # create a new working directory to install our current site
+        utils.remember_cwd(self)
+        working_dir = utils.mkdtemp(self)
+        os.chdir(working_dir)
+
+        # Trigger the compile using the module level compile function,
+        # but without bundling
+        spec = cli.compile_all(
+            ['service'], source_registries=(self.registry_name,),
+            bundlepath_method='none',
+            # Turn the compatibility off.
+            calmjs_compat=False,
         )
+        self.assertEqual(
+            spec['export_target'], join(working_dir, 'service.js'))
+
+        # For proper verification, change back to the environment root.
+        os.chdir(self._env_root)
+
+        # The execution should export all the modules to just that
+        # target, with modules simply be available at modules.
+        stdout, stderr = run_node("""
+        var service = %s
+        var rpclib = service.modules["service/rpc/lib"];
+        console.log(rpclib.Library);
+        """, spec['export_target'])
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, 'service.rpc.lib.Library\n')
+
+        # The module itself should simply be exported as 'service' when
+        # and not __calmjs__ when executed within a browser.
+        stdout, stderr = run_webpack("""
+        var service = window.service;
+        var rpclib = service.modules["service/rpc/lib"];
+        console.log(rpclib.Library);
+        """, spec['export_target'])
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'service.rpc.lib.Library\n')
@@ -490,13 +664,12 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         working_dir = utils.mkdtemp(self)
         os.chdir(working_dir)
 
-        # Trigger the compile using the module level compile function,
-        # but without bundling
-        # XXX this will fail until webpack.externals support is
-        # implemented.
+        # first build the service artifact
         spec = cli.compile_all(
             ['service'], source_registries=(self.registry_name,),
             bundlepath_method='none', sourcepath_method='explicit',
+            # leave the bootstrap available, as the testing of explicit
+            # chaining is being done.
         )
         service_js = join(working_dir, 'service.js')
         self.assertEqual(spec['export_target'], service_js)
@@ -506,7 +679,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         self.assertIn('service/rpc/lib', service_artifact)
 
-        # build its parent js separately, too
+        # then build the parent, also using the explicit sourcepath
+        # method.
         spec = cli.compile_all(
             ['framework'], source_registries=(self.registry_name,),
             bundlepath_method='none', sourcepath_method='explicit',
@@ -514,36 +688,109 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         framework_js = join(working_dir, 'framework.js')
         self.assertEqual(spec['export_target'], framework_js)
 
-        # also read the artifact for usage later.
-        with open(framework_js) as fd:
-            framework_artifact = fd.read()
-
-        # verify that the bundle works with node.  First change back to
-        # directory with webpack library installed.
-        os.chdir(self._env_root)
-
         # The execution cannot follow the standard require format, as
         # the way webpack use/generate the commonjs/commonjs2 format
         # assumes they always operate on filenames.  To get around this,
         # wrap everything in a closure that stubs out module and exports
         # to simulate an environment similar to a browser; for that a
         # dumb naked AMD definition is used without arguments.
-        stdout, stderr = node(dedent("""
-        var window = new (function(require, exports, module) {
-        %s
-        %s
-        })();
+        stdout, stderr = run_webpack("""
         var calmjs = window.__calmjs__;
         var rpclib = calmjs.require("service/rpc/lib");
         console.log(rpclib.Library);
-        """) % (framework_artifact, service_artifact))
+        """, framework_js, service_js)
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, 'service.rpc.lib.Library\n')
 
-        # TODO build one more example that has another layer deep to
-        # ensure that the addition of further modules from subsequent
-        # artifacts be implemented and tested.
+    def test_cli_compile_explicit_packages(self):
+        # have to set up the fake_modules beforehand for the resolution
+        # of bundledpaths to work.
+        current_dir, target_file = self.setup_runtime_main_env()
+        os.chdir(current_dir)
+
+        # This test is to ensure that the __calmjs__.modules can be
+        # grown over artifact definitions.
+        def generate_artifact(package):
+            # for this, only the declared bundles will be explicitly
+            # added to each module.
+            cli.compile_all(
+                [package], source_registries=(self.registry_name,),
+                bundlepath_method='explicit', sourcepath_method='explicit',
+            )
+            return join(current_dir, package + '.js')
+
+        # generate all the artifacts
+        artifacts = [generate_artifact(n) for n in (
+            'framework', 'widget', 'forms', 'service')]
+
+        # just load the first artifact (framework) and check length
+        stdout, stderr = run_webpack("""
+        for (key in window.__calmjs__.modules) {
+            console.log(key);
+        }
+        console.log(window.__calmjs__.modules.underscore);
+        """, artifacts[0])
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout.strip(), '\n'.join([
+            'framework/lib', 'jquery', 'underscore',
+
+            # the underscore module from framework uses the -min.js
+            # version
+            'underscore/underscore-min.js'
+        ]))
+
+        # now load a further one (plus widget)...
+        stdout, stderr = run_webpack("""
+        for (key in window.__calmjs__.modules) {
+            console.log(key);
+        }
+        """, artifacts[0], artifacts[1])
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout.strip(), '\n'.join([
+            # declared in framework
+            'framework/lib', 'jquery', 'underscore',
+            # declared in widget
+            'widget/core', 'widget/richedit', 'widget/datepicker',
+        ]))
+
+        # now load the rest, and see that the underscore module be
+        # shadowed from the final service artifact
+        stdout, stderr = run_webpack("""
+        for (key in window.__calmjs__.modules) {
+            console.log(key);
+        }
+        console.log(window.__calmjs__.modules.underscore);
+        """, *artifacts)
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout.strip(), '\n'.join([
+            # declared in framework
+            'framework/lib', 'jquery', 'underscore',
+            # declared in widget
+            'widget/core', 'widget/richedit', 'widget/datepicker',
+            # declared in forms
+            'forms/ui',
+            # declared in service
+            'service/endpoint', 'service/rpc/lib',
+
+            # the underscore module is now shadowed by service, which
+            # provides the .js instead of -min.js
+            'underscore/underscore.js',
+        ]))
+
+        # finally, chain all the artifacts together and see that the
+        # defined functionality works.
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var service = calmjs.require("service/endpoint");
+        var rpclib = calmjs.require("service/rpc/lib");
+        console.log(rpclib.Library);
+        console.log(service.Endpoint);
+        """, *artifacts)
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(
+            stdout, 'service.rpc.lib.Library\nservice.endpoint.Endpoint\n')
 
     def test_runtime_cli_help_text(self):
         utils.stub_stdouts(self)
@@ -560,19 +807,28 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'find source files declared for bundling; ', out)
         self.assertIn('default is current working directory', out)
 
-    def setup_runtime_main_env(self):
-        # create a new working directory to install our current site
-        utils.remember_cwd(self)
-        current_dir = utils.mkdtemp(self)
-        target_file = join(current_dir, 'bundle.js')
+    def test_runtime_cli_compile_explicit_missing(self):
+        utils.stub_stdouts(self)
+        current_dir, target_file = self.setup_runtime_main_env()
+        os.chdir(current_dir)
 
-        # invoke installation of "fake_modules"
-        copytree(
-            join(self.dist_dir, 'fake_modules'),
-            join(current_dir, 'fake_modules'),
-        )
-
-        return current_dir, target_file
+        widget_js = join(current_dir, 'widget.js')
+        # when explicit bundling is none, with how this package is set
+        # up without node_modules, webpack will simply treat the import
+        # it cannot locate as an error.
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'widget',
+                '--bundlepath-method=none',
+                '--export-target=' + widget_js,
+                '--source-registry=' + self.registry_name,
+            ])
+        # check we have the error codes.
+        self.assertEqual(e.exception.args[0], 1)
+        self.assertIn(
+            'webpack has encountered a fatal error', sys.stderr.getvalue())
+        self.assertIn(
+            'terminated with exit code', sys.stderr.getvalue())
 
     def test_runtime_cli_compile_all_service(self):
         current_dir, target_file = self.setup_runtime_main_env()
@@ -594,21 +850,19 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # The execution should then work as expected on the bundle we
         # have.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var lib = calmjs.require("framework/lib");\n'
-            'console.log(lib.Core);\n'
-            'var datepicker = calmjs.require("widget/datepicker");\n'
-            'console.log(datepicker.DatePickerWidget);\n'
-            'var rpclib = calmjs.require("service/rpc/lib");\n'
-            'console.log(rpclib.Library);\n'
-            'var jquery = calmjs.require("jquery");\n'
-            'console.log(jquery);\n'
-            'var underscore = calmjs.require("underscore");\n'
-            'console.log(underscore);\n'
-            '',
-            target_file
-        )
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var lib = calmjs.require("framework/lib");
+        console.log(lib.Core);
+        var datepicker = calmjs.require("widget/datepicker");
+        console.log(datepicker.DatePickerWidget);
+        var rpclib = calmjs.require("service/rpc/lib");
+        console.log(rpclib.Library);
+        var jquery = calmjs.require("jquery");
+        console.log(jquery);
+        var underscore = calmjs.require("underscore");
+        console.log(underscore);
+        """, target_file)
 
         self.assertEqual(stderr, '')
         # note the names of the bundled files
@@ -639,19 +893,17 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # The execution should then work as expected on the bundle we
         # have.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var lib = calmjs.require("framework/lib");\n'
-            'console.log(lib.Core);\n'
-            'var datepicker = calmjs.require("widget/datepicker");\n'
-            'console.log(datepicker.DatePickerWidget);\n'
-            'var jquery = calmjs.require("jquery");\n'
-            'console.log(jquery);\n'
-            'var underscore = calmjs.require("underscore");\n'
-            'console.log(underscore);\n'
-            '',
-            target_file
-        )
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var lib = calmjs.require("framework/lib");
+        console.log(lib.Core);
+        var datepicker = calmjs.require("widget/datepicker");
+        console.log(datepicker.DatePickerWidget);
+        var jquery = calmjs.require("jquery");
+        console.log(jquery);
+        var underscore = calmjs.require("underscore");
+        console.log(underscore);
+        """, target_file)
 
         self.assertEqual(stderr, '')
         # note the names of the bundled files
@@ -681,13 +933,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # The execution should then work as expected on the bundle we
         # have.
-        stdout, stderr = run_node(
-            'var calmjs = %s\n'
-            'var lib = calmjs.require("framework/lib");\n'
-            'console.log(lib.Core);\n'
-            '',
-            target_file
-        )
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var lib = calmjs.require("framework/lib");
+        console.log(lib.Core);
+        """, target_file)
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, (
@@ -698,7 +948,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         current_dir, target_file = self.setup_runtime_main_env()
         os.chdir(current_dir)
 
-        # Invoke the thing through the main runtime
+        # invoke the thing through the main runtime
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'webpack', 'site',
@@ -712,21 +962,23 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         with open(target_file) as fd:
             contents = fd.read()
 
-        # Since the package has no sources along with bundling disabled,
+        # since the package has no sources along with bundling disabled,
         # an artifact that contains the two generated modules should be
         # generated.
         self.assertEqual(
             contents[:42], '(function webpackUniversalModuleDefinition')
-        # Note that this test may be fragile and specific to webpack
+        # note that this test may be fragile and specific to webpack
         # versions.
-        self.assertEqual(len(contents), 3362)
+        # also that the generated module may vary in length during
+        # development.
+        # self.assertEqual(len(contents), 3362)
 
     def test_runtime_cli_compile_explicit_registry_site(self):
         utils.stub_stdouts(self)
         current_dir, target_file = self.setup_runtime_main_env()
         os.chdir(current_dir)
 
-        # Invoke the thing through the main runtime
+        # invoke the thing through the main runtime
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'webpack', 'site',
@@ -738,7 +990,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         with open(target_file) as fd:
             contents = fd.read()
 
-        # As the registry is NOT declared for that package, it should
+        # as the registry is NOT declared for that package, it should
         # result in nothing.
         self.assertNotIn('framework/lib', contents)
         self.assertIn(
@@ -783,26 +1035,25 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
                 '--bundlepath-method=explicit',
                 '--export-target=' + widget_js,
             ])
+        self.assertEqual(e.exception.args[0], 0)
         # ensure that the explicitly defined bundled files are copied
         self.assertFalse(exists(join(build_dir, 'underscore.js')))
         self.assertTrue(exists(join(build_dir, 'jquery.js')))
 
-    @unittest.skip('')
     def test_runtime_cli_compile_explicit_service_framework_widget(self):
-        def run_node_with_require(*requires):
+        def verify(*artifacts):
             os.chdir(self._env_root)
-            return run_node(
-                'var calmjs = %s\n'
-                'var lib = calmjs.require("framework/lib");\n'
-                'console.log(lib.Core);\n'
-                'var datepicker = calmjs.require("widget/datepicker");\n'
-                'console.log(datepicker.DatePickerWidget);\n'
-                'var jquery = calmjs.require("jquery");\n'
-                'console.log(jquery);\n'
-                'var underscore = calmjs.require("underscore");\n'
-                'console.log(underscore);\n',
-                *requires
-            )
+            return run_webpack("""
+            var calmjs = window.__calmjs__;
+            var lib = calmjs.require("framework/lib");
+            console.log(lib.Core);
+            var datepicker = calmjs.require("widget/datepicker");
+            console.log(datepicker.DatePickerWidget);
+            var jquery = calmjs.require("jquery");
+            console.log(jquery);
+            var underscore = calmjs.require("underscore");
+            console.log(underscore);
+            """, *artifacts)
 
         def runtime_main(args, error_code=0):
             # Invoke the thing through the main runtime
@@ -817,9 +1068,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # stubbing to check for a _lack_ of error message.
         utils.stub_stdouts(self)
 
-        # XXX this WILL fail until the usage of webpack.externals is
-        # properly supported.
-        # Invoke the thing through the main runtime
+        # invoke the thing through the main runtime
         runtime_main([
             'webpack', 'framework', 'forms', 'service',
             '--sourcepath-method=explicit',
@@ -830,9 +1079,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # no complaints about missing 'widget/*' modules
         self.assertEqual('', sys.stderr.getvalue())
 
-        # Try running it anyway with widget missing...
-        stdout, stderr = run_node_with_require(target_file)
-        # This naturally will not work, so the missing module will be in
+        # try running it anyway with widget missing...
+        stdout, stderr = verify(target_file)
+        # this naturally will not work, so the missing module will be in
         # the error
         self.assertIn('widget', stderr)
 
@@ -840,25 +1089,25 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         widget_js = join(current_dir, 'widget.js')
         runtime_main([
             'webpack', 'widget',
-            '--sourcepath-method=explicit',
             '--export-target=' + widget_js,
             '--source-registry=' + self.registry_name,
         ])
         # no complaints about missing 'framework/lib'
         self.assertEqual('', sys.stderr.getvalue())
 
-        # The execution should now work if the widget bundle is loaded
+        # the execution should now work if the widget bundle is loaded
         # first, and output should be as expected.
-        stdout, stderr = run_node_with_require(widget_js, target_file)
+        stdout, stderr = verify(widget_js, target_file)
+        self.maxDiff = None
         self.assertEqual(stderr, '')
         # note the names of the bundled files
         self.assertEqual(stdout, (
             'framework.lib.Core\n'
             'widget.datepicker.DatePickerWidget\n'
             'jquery/dist/jquery.min.js\n'  # from widget
-            # widget_js contains this because the package 'framework'
-            # declared the follow location.
-            'underscore/underscore-min.js\n'
+            # not underscore-min.js from widget because this was bundled
+            # in the artifact
+            'underscore/underscore.js\n'
         ))
 
     def test_runtime_example_package_auto_registry(self):

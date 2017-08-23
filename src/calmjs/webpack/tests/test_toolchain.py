@@ -226,9 +226,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
                 'bundled_dir',
                 'bundled_pkg',
             ],
-            # note that this is the key that mark the build as standard
-            # calmjs compatible mode for the generation of the bootstrap
-            # lookup module.
+            # to enable the correct function of the calmjs bootstrap and
+            # the loader, this must be explicitly configured as such
             webpack_output_library='__calmjs__',
             # also that the externals _must_ be defined exactly as
             # required
@@ -250,23 +249,24 @@ class ToolchainUnitTestCase(unittest.TestCase):
             config_js = json.loads(''.join(fd.readlines()[5:-6]))
         self.assertEqual(config_js, spec['webpack_config'])
 
-        with open(config_js['entry']) as fd:
-            self.assertIn('require("example/module")', fd.read())
+        # the bootstrap is generated and is the entry point.
+        calmjs_bootstrap_filename = join(tmpdir, '__calmjs_bootstrap__.js')
+        self.assertEqual(config_js['entry'], calmjs_bootstrap_filename)
+        self.assertTrue(exists(calmjs_bootstrap_filename))
+        # note that the webpack.output.library is as configured
+        self.assertEqual('__calmjs__', config_js['output']['library'])
 
         self.assertEqual(config_js['resolve']['alias'], {
+            '__calmjs_loader__': join(tmpdir, '__calmjs_loader__.js'),
             'example/module': join(tmpdir, 'example', 'module.js'),
             'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
             'bundled_dir': join(tmpdir, 'bundled_dir'),
         })
 
-        # Also verify the generated __calmjs_bootstrap__ js module.
-        with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
+        with open(config_js['resolve']['alias']['__calmjs_loader__']) as fd:
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
-            self.assertIn(
-                '["example/module"] = require("example/module")',
-                calmjs_module
-            )
+            self.assertIn('require("example/module")', calmjs_module)
             self.assertIn('calmjs_bootstrap.modules', calmjs_module)
 
     def test_prepare_assemble_calmjs_bootstrap_explicit(self):
@@ -373,6 +373,9 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertIn(
             "spec webpack_entry_point defined to be '__calmjs__'",
             s.getvalue())
+        # when webpack.output.library is not configured as __calmjs__,
+        # this warning is triggered due to how the result may not
+        # function as expected.
         self.assertIn(
             "webpack.externals does not have '__calmjs__' defined for "
             "the complete calmjs webpack bootstrap module",
@@ -388,12 +391,15 @@ class ToolchainUnitTestCase(unittest.TestCase):
             self.assertIn('require("example/module")', fd.read())
 
         self.assertEqual(config_js['resolve']['alias'], {
+            # note the lack of __calmjs_loader__
             'example/module': join(tmpdir, 'example', 'module.js'),
             'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
             'bundled_dir': join(tmpdir, 'bundled_dir'),
         })
 
-        # Also verify the generated __calmjs_bootstrap__ js module.
+        # Also verify the generated __calmjs_bootstrap__ js module,
+        # with all the require being dumped here instead of the loader
+        # which got disabled.
         with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
@@ -404,7 +410,6 @@ class ToolchainUnitTestCase(unittest.TestCase):
             self.assertNotIn('calmjs_bootstrap.modules', calmjs_module)
 
     def test_prepare_assemble_webpack_standard(self):
-        # without calmjs compatibility
         tmpdir = utils.mkdtemp(self)
 
         with open(join(tmpdir, 'webpack'), 'w'):
@@ -472,23 +477,22 @@ class ToolchainUnitTestCase(unittest.TestCase):
             config_js = json.loads(''.join(fd.readlines()[5:-6]))
         self.assertEqual(config_js, spec['webpack_config'])
 
-        with open(config_js['entry']) as fd:
-            self.assertIn('require("example/module")', fd.read())
+        # the bootstrap is generated and is the entry point.
+        calmjs_bootstrap_filename = join(tmpdir, '__calmjs_bootstrap__.js')
+        self.assertEqual(config_js['entry'], calmjs_bootstrap_filename)
+        self.assertTrue(exists(calmjs_bootstrap_filename))
+        # note that the webpack.output.library is as configured
+        self.assertEqual('example', config_js['output']['library'])
 
-        self.maxDiff = None
         self.assertEqual(config_js['resolve']['alias'], {
+            '__calmjs_loader__': join(tmpdir, '__calmjs_loader__.js'),
             'example/module': join(tmpdir, 'example', 'module.js'),
             'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
             'bundled_dir': join(tmpdir, 'bundled_dir'),
         })
 
-        # Also verify the generated __calmjs_bootstrap__ js module.
-        with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
+        with open(config_js['resolve']['alias']['__calmjs_loader__']) as fd:
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
-            self.assertIn(
-                '["example/module"] = require("example/module")',
-                calmjs_module
-            )
-            # the complete bootstrap module is generated anyway.
+            self.assertIn('require("example/module")', calmjs_module)
             self.assertIn('calmjs_bootstrap.modules', calmjs_module)
