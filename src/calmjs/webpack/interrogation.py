@@ -28,16 +28,30 @@ def probe(node):
     # this is the factory argument
     factory_name = webpack_wrapper.parameters[1].value
 
+    # first, locate the index number of the entry point (calmjs export
+    # module), depending on whether or not the webpack is minified.
     if factory_name == 'factory':
+        # non-minified.
         verify_factory(webpack_wrapper, factory_name)
-        index = extract_position(node)
+        entry_index = extract_entry_index(node)
     else:
-        # assuming it's a minified source
+        # minified.
         verify_factory_min(webpack_wrapper, factory_name)
-        index = extract_position_min(node)
+        entry_index = extract_entry_index_min(node)
 
-    module = extract_module(node, index)
-    names = extract_exported_calmjs_names(module)
+    # now that we have the entry point, extract the index of the module
+    # loader module from that
+    entry_module = extract_module(node, entry_index)
+    try:
+        loader_index = extract_loader_index(entry_module)
+    except TypeError:
+        # while this is probably a valid webpack, no modules can be
+        # located, so return an empty list
+        return []
+
+    # this should be the loader module
+    loader_module = extract_module(node, loader_index)
+    names = extract_exported_calmjs_names(loader_module)
     return names
 
 
@@ -50,7 +64,7 @@ def verify_factory(node, factory_name):
     ))
 
 
-def extract_position(node):
+def extract_entry_index(node):
     return int(extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
@@ -70,7 +84,7 @@ def verify_factory_min(node, factory_name):
     ))
 
 
-def extract_position_min(node):
+def extract_entry_index_min(node):
     return int(extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, Comma) and
@@ -78,6 +92,16 @@ def extract_position_min(node):
         n.expr.right.args.items and
         isinstance(n.expr.right.args.items[0].right, Number)
     )).expr.right.args.items[0].right.value)
+
+
+def extract_loader_index(node):
+    try:
+        return int(extract(node, lambda n: (
+            isinstance(n, FunctionCall)
+        )).args.items[0].value)
+    except ValueError:
+        # clearly not an integer, it is a type error.
+        raise TypeError('could not extract a compatible loader index')
 
 
 def extract_module(node, index):

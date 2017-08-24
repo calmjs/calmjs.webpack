@@ -96,14 +96,15 @@ _WEBPACK_CONFIG_PLUGINS = (
 _WEBPACK_ENTRY_CALMJS_LOAD_ONLY_TEMPLATE = """'use strict';
 
 %s
-""", "require(%(module)s);"
+""", "require(%(module)s);", "\n",
 
 # the simple export version: only the modules get exported
 _WEBPACK_ENTRY_CALMJS_EXPORT_ONLY_TEMPLATE = """'use strict';
 
-exports.modules = {};
+exports.modules = {
 %s
-""", "exports.modules[%(module)s] = require(%(module)s);"
+};
+""", "    %(module)s: require(%(module)s)", ",\n",
 
 # the complete export version, but cannot function as the entry point;
 # require the export loader below; works as a loader module
@@ -111,8 +112,9 @@ _WEBPACK_CALMJS_MODULE_LOADER_TEMPLATE = """'use strict';
 
 var calmjs_bootstrap = require('__calmjs__') || {};
 var externals = calmjs_bootstrap.modules || {};
-exports.modules = {};
+exports.modules = {
 %s
+};
 
 exports.require = function(modules, f) {
     if (modules.map) {
@@ -125,7 +127,7 @@ exports.require = function(modules, f) {
         return exports.modules[modules] || externals[modules];
     }
 };
-""", "exports.modules[%(module)s] = require(%(module)s);"
+""", "    %(module)s: require(%(module)s)", ",\n",
 
 # the more complicated version: load both the exported module along with
 # the loader module, and assemble this and export for the pass through
@@ -243,7 +245,7 @@ class WebpackToolchain(Toolchain):
 
         spec[WEBPACK_EXTERNALS] = spec.get(WEBPACK_EXTERNALS, {})
 
-    def write_lookup_module(self, spec, target, template, requireline):
+    def write_lookup_module(self, spec, target, template, requireline, joiner):
         """
         Webpack does not provide an extensible named module system, so
         we have to build our own here...
@@ -260,7 +262,7 @@ class WebpackToolchain(Toolchain):
 
         export_module_path = join(spec[BUILD_DIR], target)
         with codecs.open(export_module_path, 'w', encoding='utf8') as fd:
-            fd.write(template % '\n'.join(exported))
+            fd.write(template % joiner.join(exported))
         return export_module_path
 
     def write_bootstrap_module(

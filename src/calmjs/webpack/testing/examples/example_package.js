@@ -1,13 +1,13 @@
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
-		module.exports = factory();
+		module.exports = factory(require("global")["__calmjs__"]);
 	else if(typeof define === 'function' && define.amd)
-		define([], factory);
+		define("__calmjs__", ["__calmjs__"], factory);
 	else if(typeof exports === 'object')
-		exports["__calmjs__"] = factory();
+		exports["__calmjs__"] = factory(require("global")["__calmjs__"]);
 	else
-		root["__calmjs__"] = factory();
-})(this, function() {
+		root["__calmjs__"] = factory(root["__calmjs__"]);
+})(this, function(__WEBPACK_EXTERNAL_MODULE_0__) {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
@@ -73,24 +73,14 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 3);
+/******/ 	return __webpack_require__(__webpack_require__.s = 4);
 /******/ })
 /************************************************************************/
 /******/ ([
 /* 0 */
-/***/ (function(module, exports, __webpack_require__) {
+/***/ (function(module, exports) {
 
-"use strict";
-
-
-
-
-var die = function() {
-    return notdefinedsymbol;
-};
-
-exports.die = die;
-
+module.exports = __WEBPACK_EXTERNAL_MODULE_0__;
 
 /***/ }),
 /* 1 */
@@ -98,14 +88,10 @@ exports.die = die;
 
 "use strict";
 
-
-exports.add = function(x, y) {
-    return x + y;
+var die = function() {
+    return notdefinedsymbol;
 };
-
-exports.mul = function(x, y) {
-    return x * y;
-};
+exports.die = die;
 
 
 /***/ }),
@@ -114,19 +100,12 @@ exports.mul = function(x, y) {
 
 "use strict";
 
-
-var math = __webpack_require__(1);
-var bad = __webpack_require__(0);
-
-var main = function(trigger) {
-    console.log(math.add(1, 1));
-    console.log(math.mul(2, 2));
-    if (trigger === true) {
-        bad.die();
-    }
+exports.add = function(x, y) {
+    return x + y;
 };
-
-exports.main = main;
+exports.mul = function(x, y) {
+    return x * y;
+};
 
 
 /***/ }),
@@ -135,23 +114,62 @@ exports.main = main;
 
 "use strict";
 
+
+var calmjs_bootstrap = __webpack_require__(0) || {};
+var externals = calmjs_bootstrap.modules || {};
 exports.modules = {
-    'example/package/math': __webpack_require__(1),
-    'example/package/bad': __webpack_require__(0),
-    'example/package/main': __webpack_require__(2),
+    "example/package/math": __webpack_require__(2),
+    "example/package/bad": __webpack_require__(1),
+    "example/package/main": __webpack_require__(5)
 };
 
 exports.require = function(modules, f) {
     if (modules.map) {
         f.apply(null, modules.map(function(m) {
-            return exports.modules[m];
+            return exports.modules[m] || externals[m];
         }));
     }
     else {
         // assuming the synchronous version
-        return exports.modules[modules];
+        return exports.modules[modules] || externals[modules];
     }
 };
+
+
+/***/ }),
+/* 4 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var calmjs_loader = __webpack_require__(3)
+var calmjs_bootstrap = __webpack_require__(0) || {};
+var external_modules = calmjs_bootstrap.modules || {};
+
+exports.require = calmjs_loader.require;
+exports.modules = external_modules;
+for (var k in calmjs_loader.modules) {
+    exports.modules[k] = calmjs_loader.modules[k];
+}
+
+
+/***/ }),
+/* 5 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var math = __webpack_require__(2);
+var bad = __webpack_require__(1);
+var main = function(trigger) {
+    console.log(math.add(1, 1));
+    console.log(math.mul(2, 2));
+    if (trigger === true) {
+        bad.die();
+    }
+};
+exports.main = main;
 
 
 /***/ })

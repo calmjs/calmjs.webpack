@@ -12,6 +12,7 @@ from shutil import copytree
 from textwrap import dedent
 
 from pkg_resources import get_distribution
+from pkg_resources import resource_filename
 
 from calmjs.toolchain import Spec
 from calmjs.npm import Driver
@@ -20,6 +21,9 @@ from calmjs.cli import node
 from calmjs import runtime
 from calmjs.registry import get as get_registry
 from calmjs.utils import pretty_logging
+
+from calmjs.parse.parsers.es5 import parse
+from calmjs.parse.visitors.generic import ReprVisitor
 
 from calmjs.webpack import toolchain
 from calmjs.webpack import cli
@@ -519,6 +523,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'example_package.min', 'example_package.extras.min',
         ]
         names = {n: join(bundle_dir, n + '.js') for n in keys}
+        # for later verification
+        examples = resource_filename('calmjs.webpack.testing', 'examples')
+        prebuilts = {n: join(examples, n + '.js') for n in keys}
 
         # first test, build just the example_package.
         transpile_sourcepath.update(self._example_package_map)
@@ -590,6 +597,17 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'example_package.min'])
         self.assertNotIn('webpackUniversalModuleDefinition', contents[
             'example_package.extras.min'])
+
+        # Finally, since these artifacts are used directly by the
+        # interrogation tests, test that the ones store statically match
+        # up with the prebuilt ones stored in examples at the source
+        # tree level.
+        rv = ReprVisitor()
+        for key in keys:
+            with open(prebuilts[key]) as fd:
+                prebuilt = rv.visit(parse(fd.read()))
+                generated = rv.visit(parse(contents[key]))
+                self.assertEqual(prebuilt, generated)
 
     def test_cli_create_spec(self):
         with pretty_logging(stream=StringIO()):

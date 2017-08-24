@@ -406,7 +406,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
             calmjs_module = fd.read()
             # should probably use the parser in slimit for verification
             self.assertIn(
-                '["example/module"] = require("example/module")',
+                '"example/module": require("example/module")',
                 calmjs_module
             )
             self.assertNotIn('calmjs_bootstrap.modules', calmjs_module)

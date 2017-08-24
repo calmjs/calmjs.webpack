@@ -47,6 +47,7 @@ class InterrogationTestCase(unittest.TestCase):
         self.assertAllEqual([
             'example/package/bare',
             'example/package/bad',
+            'example/package/dynamic',
             'example/package/main',
             'example/package/math',
             'mockquery',
