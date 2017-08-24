@@ -31,7 +31,7 @@ _typical_names = parse(read(join(_root, 'typical_names.js')))
 _unusual_names = parse(read(join(_root, 'unusual_names.js')))
 
 
-class InterrogationTestCase(unittest.TestCase):
+class WebpackTestCase(unittest.TestCase):
 
     def assertAllEqual(self, result, f, args):
         for a in args:
