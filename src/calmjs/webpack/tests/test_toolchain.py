@@ -234,6 +234,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
             webpack_externals={'__calmjs__': {
                 "root": '__calmjs__',
                 "amd": '__calmjs__',
+                "commonjs": ['global', '__calmjs__'],
+                "commonjs2": ['global', '__calmjs__'],
             }},
         )
 
@@ -446,6 +448,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
                 '__calmjs__': {
                     'root': '__calmjs__',
                     'amd': '__calmjs__',
+                    'commonjs': ['global', '__calmjs__'],
+                    'commonjs2': ['global', '__calmjs__'],
                 },
             },
             # however, this is redefined.

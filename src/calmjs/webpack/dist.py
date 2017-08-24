@@ -19,6 +19,9 @@ from calmjs.dist import flatten_module_registry_dependencies
 from calmjs.dist import flatten_parents_module_registry_dependencies
 from calmjs.dist import flatten_module_registry_names
 
+from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
+from calmjs.webpack.base import DEFAULT_BOOTSTRAP_COMMONJS
+
 logger = logging.getLogger(__name__)
 _default = 'all'
 
@@ -176,8 +179,13 @@ def generate_transpiled_externals(
     # the raw source map, to turn into the externals
     return {
         key: {
-            "root": ["__calmjs__", "modules", key],
-            "amd": ["__calmjs__", "modules", key],
+            "root": [DEFAULT_BOOTSTRAP_EXPORT, "modules", key],
+            "amd": [DEFAULT_BOOTSTRAP_EXPORT, "modules", key],
+            # there will be no equivalent commonjs modules, so we are
+            # going to cheat and use global module for emulating this.
+            # see the documentation at this constant for usage.
+            "commonjs": list(DEFAULT_BOOTSTRAP_COMMONJS) + ["modules", key],
+            "commonjs2": list(DEFAULT_BOOTSTRAP_COMMONJS) + ["modules", key],
         }
         for key in _generate_transpile_maps(
             package_names, registries, transpiled_externals_methods_map, method
@@ -265,8 +273,14 @@ def generate_bundled_externals(
         package_names, working_dir, extras_calmjs_methods, method)
     return {
         key: {
+            # assume that they are bundle standardly.
             "root": key,
             "amd": key,
+            # for these commonjs types, assume that there exists node
+            # modules for them; not really supported anyway, just to
+            # make future versions of webpack happy.
+            "commonjs": key,
+            "commonjs2": key,
         }
         for key in _generate_bundle_maps(
             package_names, working_dir, external_extras_calmjs_methods, method

@@ -103,6 +103,10 @@ class DistIntegrationTestCase(unittest.TestCase):
             'framework/lib': {
                 "root": ["__calmjs__", "modules", "framework/lib"],
                 "amd": ["__calmjs__", "modules", "framework/lib"],
+                "commonjs": [
+                    "global", "__calmjs__", "modules", "framework/lib"],
+                "commonjs2": [
+                    "global", "__calmjs__", "modules", "framework/lib"],
             },
         }, dist.generate_transpiled_externals(
             ['service'], registries=(self.registry_name,), method='explicit'))
@@ -186,5 +190,8 @@ class DistIntegrationTestCase(unittest.TestCase):
         externals = dist.generate_bundled_externals(
             ['service'], self.dist_dir, method='explicit')
         self.assertEqual(externals, {
-            'jquery': {"root": 'jquery', "amd": 'jquery'}
+            'jquery': {
+                "root": 'jquery', "amd": 'jquery',
+                'commonjs': 'jquery', 'commonjs2': 'jquery',
+            }
         })

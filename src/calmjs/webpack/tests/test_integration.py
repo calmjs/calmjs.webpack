@@ -524,6 +524,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             webpack_externals={'__calmjs__': {
                 "root": '__calmjs__',
                 "amd": '__calmjs__',
+                "commonjs": ['global', '__calmjs__'],
+                "commonjs2": ['global', '__calmjs__'],
             }},
         )
         webpack(spec)
