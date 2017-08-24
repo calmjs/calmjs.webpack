@@ -44,6 +44,7 @@ from .base import WEBPACK_CONFIG
 from .base import WEBPACK_EXTERNALS
 from .base import WEBPACK_OUTPUT_LIBRARY
 from .base import WEBPACK_ENTRY_POINT
+from .base import WEBPACK_OPTIMIZE_MINIMIZE
 from .base import DEFAULT_BOOTSTRAP_EXPORT
 from .base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
@@ -61,7 +62,7 @@ _DEFAULT_BOOTSTRAP_FILENAME = '__calmjs_bootstrap__.js'
 # conjunction with DEFAULT_CALMJS_EXPORT_NAME
 _DEFAULT_LOADER_FILENAME = '__calmjs_loader__.js'
 
-# TODO figure out how to deal with chunking configuration
+# TODO should probably use calmjs.parse to build this through asttypes
 _WEBPACK_CONFIG_TEMPLATE = """'use strict';
 
 var webpack = require('webpack');
@@ -72,9 +73,14 @@ var webpackConfig = (
 
 module.exports = webpackConfig;
 module.exports.plugins = [
-    new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})
+%s
 ];
 """
+# default list of webpack config plugins
+_WEBPACK_CONFIG_PLUGINS = (
+    # TODO figure out how to deal with chunking configuration
+    'new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})',
+)
 
 # TODO document how the custom loader will ONLY work for
 # libraryTarget: "window", but
@@ -268,6 +274,17 @@ class WebpackToolchain(Toolchain):
             fd.write(template)
         return export_module_path
 
+    def write_webpack_config(self, spec, webpack_config):
+        # write out the configuration file
+        plugins = list(_WEBPACK_CONFIG_PLUGINS)
+        if spec.get(WEBPACK_OPTIMIZE_MINIMIZE):
+            plugins.append('new webpack.optimize.UglifyJsPlugin({})')
+        config_dump = json.dumps(webpack_config, indent=4)
+        plugins_dump = ',\n    '.join(plugins)
+        with codecs.open(
+                spec['webpack_config_js'], 'w', encoding='utf8') as fd:
+            fd.write(_WEBPACK_CONFIG_TEMPLATE % (config_dump, plugins_dump))
+
     def assemble(self, spec):
         """
         Assemble the library by compiling everything and generate the
@@ -392,12 +409,7 @@ class WebpackToolchain(Toolchain):
             # otherwise, use the simplified version.
             webpack_config['entry'] = alias[spec[WEBPACK_ENTRY_POINT]]
 
-        # write out the configuration file
-        with codecs.open(
-                spec['webpack_config_js'], 'w', encoding='utf8') as fd:
-            fd.write(_WEBPACK_CONFIG_TEMPLATE % json.dumps(
-                webpack_config, indent=4))
-
+        self.write_webpack_config(spec, webpack_config)
         # record the webpack config to the spec
         spec[WEBPACK_CONFIG] = webpack_config
 

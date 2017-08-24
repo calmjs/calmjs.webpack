@@ -14,6 +14,7 @@ from calmjs.toolchain import SOURCE_PACKAGE_NAMES
 from calmjs.webpack.base import WEBPACK_ENTRY_POINT
 from calmjs.webpack.base import WEBPACK_EXTERNALS
 from calmjs.webpack.base import WEBPACK_OUTPUT_LIBRARY
+from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
 
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
@@ -37,6 +38,7 @@ def create_spec(
         calmjs_compat=True,
         webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
         webpack_output_library=True,
+        webpack_optimize_minimize=False,
         ):
     """
     Produce a spec for the compilation through the WebpackToolchain.
@@ -218,6 +220,7 @@ def create_spec(
     spec[CALMJS_MODULE_REGISTRY_NAMES] = source_registries
     spec[EXPORT_TARGET] = export_target
     spec[SOURCE_PACKAGE_NAMES] = package_names
+    spec[WEBPACK_OPTIMIZE_MINIMIZE] = webpack_optimize_minimize
 
     spec['transpile_sourcepath'] = generate_transpile_sourcepaths(
         package_names=package_names,
@@ -299,6 +302,7 @@ def compile_all(
         webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
         webpack_output_library=True,
         toolchain=default_toolchain,
+        webpack_optimize_minimize=False,
         ):
     """
     Invoke the webpack compiler to generate a JavaScript bundle file for
@@ -331,6 +335,7 @@ def compile_all(
         calmjs_compat=calmjs_compat,
         webpack_entry_point=webpack_entry_point,
         webpack_output_library=webpack_output_library,
+        webpack_optimize_minimize=webpack_optimize_minimize,
     )
     toolchain(spec)
     return spec

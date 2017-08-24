@@ -16,6 +16,8 @@ WEBPACK_EXTERNALS = 'webpack_externals'
 # The key for specifying the raw entry point - the alias will need to be
 # resolved to the actual webpack_entry.
 WEBPACK_ENTRY_POINT = 'webpack_entry_point'
+# Enable the --optimize-minimize option for webpack
+WEBPACK_OPTIMIZE_MINIMIZE = 'webpack_optimize_minimize'
 
 # constants
 

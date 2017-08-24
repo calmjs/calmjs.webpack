@@ -488,34 +488,20 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '[ 1 ]\n')
 
-        # XXX TODO make this also the minified version and verify that
-        # the extractor can extract the names.
-
-    def test_webpack_toolchain_dynamic_with_calmjs(self):
+    def test_webpack_toolchain_dynamic_with_calmjs_various(self):
         # Test that dynamic imports will be transpiled and work through
         # the injected calmjs system
-
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
-        # include the custom sources, that has names not connected by
-        # main.
-        transpile_sourcepath = {
-            'example/package/bare': join(self._ep_root, 'bare.js'),
-            'example/package/dynamic': join(self._ep_root, 'dynamic.js'),
-        }
-        bundle_sourcepath = {
-            'mockquery': join(self._nm_root, 'mockquery.js'),
-        }
-
-        transpile_sourcepath.update(self._example_package_map)
-        export_target = join(bundle_dir, 'example.package.js')
-
         webpack = toolchain.WebpackToolchain(
             node_path=join(self._env_root, 'node_modules'))
-        spec = Spec(
+
+        # build the initial data in an incremental manner
+        transpile_sourcepath = {}
+        bundle_sourcepath = {}
+        base_spec = dict(
             transpile_sourcepath=transpile_sourcepath,
             bundle_sourcepath=bundle_sourcepath,
-            export_target=export_target,
             build_dir=build_dir,
             # must use the explicit settings
             webpack_output_library='__calmjs__',
@@ -528,18 +514,82 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
                 "commonjs2": ['global', '__calmjs__'],
             }},
         )
-        webpack(spec)
-        self.assertTrue(exists(export_target))
+        keys = [
+            'example_package', 'example_package.extras',
+            'example_package.min', 'example_package.extras.min',
+        ]
+        names = {n: join(bundle_dir, n + '.js') for n in keys}
+
+        # first test, build just the example_package.
+        transpile_sourcepath.update(self._example_package_map)
+
+        base_spec['webpack_optimize_minimize'] = False
+        base_spec['export_target'] = names['example_package']
+        webpack(Spec(**base_spec))
+        self.assertTrue(exists(names['example_package']))
+
+        base_spec['webpack_optimize_minimize'] = True
+        base_spec['export_target'] = names['example_package.min']
+        webpack(Spec(**base_spec))
+        self.assertTrue(exists(names['example_package.min']))
 
         # verify that the bundle works with with the webpack runner.
-        stdout, stderr = run_webpack("""
-        var calmjs = window.__calmjs__;
-        var dynamic = calmjs.require("example/package/dynamic");
-        console.log(dynamic.check(1, 2));
-        """, export_target)
+        for n in ['example_package', 'example_package.min']:
+            stdout, stderr = run_webpack("""
+            var calmjs = window.__calmjs__;
+            var main = calmjs.require("example/package/main");
+            main.main();
+            """, names[n])
+            self.assertEqual(stderr, '')
+            self.assertEqual(stdout, '2\n4\n')
 
-        self.assertEqual(stderr, '')
-        self.assertEqual(stdout, '3\n')
+        # test again to include the custom sources with names not
+        # connected by main, for the dynamic import from within
+        transpile_sourcepath.update({
+            'example/package/bare': join(self._ep_root, 'bare.js'),
+            'example/package/dynamic': join(self._ep_root, 'dynamic.js'),
+        })
+        bundle_sourcepath.update({
+            'mockquery': join(self._nm_root, 'mockquery.js'),
+        })
+
+        base_spec['webpack_optimize_minimize'] = False
+        base_spec['export_target'] = names['example_package.extras']
+        webpack(Spec(**base_spec))
+        self.assertTrue(exists(names['example_package.extras']))
+
+        base_spec['webpack_optimize_minimize'] = True
+        base_spec['export_target'] = names['example_package.extras.min']
+        webpack(Spec(**base_spec))
+        self.assertTrue(exists(names['example_package.extras.min']))
+
+        # verify that the bundle works with with the webpack runner.
+        for n in ['example_package.extras', 'example_package.extras.min']:
+            stdout, stderr = run_webpack("""
+            var calmjs = window.__calmjs__;
+            var dynamic = calmjs.require("example/package/dynamic");
+            console.log(dynamic.check(1, 2));
+            """, names[n])
+            self.assertEqual(stderr, '')
+            self.assertEqual(stdout, '3\n')
+
+        # verify all contents
+        contents = {}
+        for key, path in names.items():
+            with open(path) as fd:
+                contents[key] = fd.read()
+
+        # ensure that the verbose header is present in standard version
+        self.assertIn('webpackUniversalModuleDefinition', contents[
+            'example_package'])
+        self.assertIn('webpackUniversalModuleDefinition', contents[
+            'example_package.extras'])
+        # ensure that the verbose header isn't present in the minimized
+        # version.
+        self.assertNotIn('webpackUniversalModuleDefinition', contents[
+            'example_package.min'])
+        self.assertNotIn('webpackUniversalModuleDefinition', contents[
+            'example_package.extras.min'])
 
     def test_cli_create_spec(self):
         with pretty_logging(stream=StringIO()):
@@ -1123,3 +1173,38 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             ])
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
+
+        with open(export_target) as fd:
+            self.assertIn('webpackUniversalModuleDefinition', fd.read())
+
+        # ensure that it runs, too.
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var main = calmjs.require("example/package/main");
+        main.main();
+        """, export_target)
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, '2\n4\n')
+
+    def test_runtime_example_package_minimized(self):
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package', '--optimize-minimize',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+
+        with open(export_target) as fd:
+            self.assertNotIn('webpackUniversalModuleDefinition', fd.read())
+
+        # ensure that it runs, too.
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var main = calmjs.require("example/package/main");
+        main.main();
+        """, export_target)
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, '2\n4\n')
