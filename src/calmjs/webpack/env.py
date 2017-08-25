@@ -8,8 +8,6 @@ from calmjs.utils import finalize_env
 
 codec = sys.getdefaultencoding()
 
-NODE_MODULES = 'node_modules'
-
 
 def recode(v):
     return v if isinstance(v, str) else v.encode(codec)

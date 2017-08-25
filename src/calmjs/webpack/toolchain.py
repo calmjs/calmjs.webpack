@@ -36,7 +36,6 @@ from calmjs.webpack.manipulation import convert_dynamic_require
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 
 from .env import webpack_env
-from .env import NODE_MODULES
 from .exc import WebpackRuntimeError
 from .exc import WebpackExitError
 
@@ -415,33 +414,26 @@ class WebpackToolchain(Toolchain):
         # record the webpack config to the spec
         spec[WEBPACK_CONFIG] = webpack_config
 
-    def _find_node_modules(self):
-        # TODO merge with upstream, or have upstream provide one by
-        # splitting up which_with_node_modules
-        paths = (self.node_path or str('')).split(pathsep)
-        paths.append(self.join_cwd(NODE_MODULES))
-        paths = [p for p in paths if isdir(p)]
-        if not paths:
-            logger.warning(
-                'no valid node_modules found - webpack may fail to locate '
-                'itself.'
-            )
-        return pathsep.join(paths)
-
     def link(self, spec):
         """
         Basically link everything up as a bundle, as if statically
         linking everything into "binary" file.
         """
 
-        node_path = self._find_node_modules()
+        node_path = pathsep.join(self.find_node_modules_basedir())
+        if not node_path:
+            logger.warning(
+                'no valid node_modules found - webpack may fail to locate '
+                'itself.'
+            )
+
         # TODO allow to (un)set option flags such as --display-reasons
         args = (
             spec[self.webpack_bin_key],
             '--display-modules', '--display-reasons',
             '--config', spec['webpack_config_js']
         )
-        logger.info('invoking WEBPACK=%r %s %s %s %s %s', node_path, *args)
+        logger.info('invoking NODE_PATH=%r %s %s %s %s %s', node_path, *args)
         # note that webpack treats the configuration as an executable
         # node.js program - so that it will need to be able to import
         # (require) webpack - explicitly have to provide the one located
