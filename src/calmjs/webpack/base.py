@@ -11,6 +11,8 @@ from __future__ import unicode_literals
 WEBPACK_CONFIG = 'webpack_config'
 # The key for the webpack.output.library
 WEBPACK_OUTPUT_LIBRARY = 'webpack_output_library'
+# The key for generating a combined single test index.
+WEBPACK_SINGLE_TEST_BUNDLE = 'webpack_single_test_bundle'
 # The key for webpack externals
 WEBPACK_EXTERNALS = 'webpack_externals'
 # The key for specifying the raw entry point - the alias will need to be

@@ -20,6 +20,7 @@ package_json = {
     "dependencies": {},
     "devDependencies": {
         "webpack": "~2.6.0",
+        "karma-webpack": "~2.0.0",
     }
 }
 
@@ -63,6 +64,10 @@ setup(
     entry_points={
         'calmjs.runtime': [
             'webpack = calmjs.webpack.runtime:default',
+        ],
+        'calmjs.toolchain.advice': [
+            'calmjs.dev.toolchain:KarmaToolchain = '
+            'calmjs.webpack.dev:webpack_advice',
         ],
     },
     package_json=package_json,

@@ -35,6 +35,7 @@ from calmjs.parse import sourcemap
 from calmjs.webpack.manipulation import convert_dynamic_require
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 
+from .dev import webpack_advice
 from .env import webpack_env
 from .exc import WebpackRuntimeError
 from .exc import WebpackExitError
@@ -243,6 +244,7 @@ class WebpackToolchain(Toolchain):
                 "'%s' must not be same as '%s'" % (EXPORT_TARGET, matched[0]))
 
         spec[WEBPACK_EXTERNALS] = spec.get(WEBPACK_EXTERNALS, {})
+        webpack_advice(spec)
 
     def write_lookup_module(self, spec, target, template, requireline, joiner):
         """
@@ -342,7 +344,7 @@ class WebpackToolchain(Toolchain):
                 "spec webpack_entry_point defined to be '%s'",
                 DEFAULT_BOOTSTRAP_EXPORT
             )
-            if (spec[WEBPACK_EXTERNALS].get(DEFAULT_BOOTSTRAP_EXPORT) ==
+            if (webpack_config['externals'].get(DEFAULT_BOOTSTRAP_EXPORT) ==
                     DEFAULT_BOOTSTRAP_EXPORT_CONFIG):
                 logger.info(
                     "webpack.externals defined '%s' with value that enables "

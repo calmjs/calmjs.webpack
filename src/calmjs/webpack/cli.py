@@ -9,8 +9,10 @@ from calmjs.toolchain import Spec
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import CALMJS_MODULE_REGISTRY_NAMES
 from calmjs.toolchain import EXPORT_TARGET
+from calmjs.toolchain import GENERATE_SOURCE_MAP
 from calmjs.toolchain import SOURCE_PACKAGE_NAMES
 
+from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import WEBPACK_ENTRY_POINT
 from calmjs.webpack.base import WEBPACK_EXTERNALS
 from calmjs.webpack.base import WEBPACK_OUTPUT_LIBRARY
@@ -290,6 +292,14 @@ def create_spec(
                 "webpack.output.library is manually set to '%s'",
                 spec[WEBPACK_OUTPUT_LIBRARY]
             )
+
+    # XXX for now we force this feature on - will need to determine how
+    # and what exactly are the benefits and drawbacks are.
+    spec[WEBPACK_SINGLE_TEST_BUNDLE] = True
+    # Also force source maps on, given that the regeneration *will*
+    # mangle the source.  This will be useful for test coverage
+    # reporting through e.g. istanbul.
+    spec[GENERATE_SOURCE_MAP] = True
 
     return spec
 

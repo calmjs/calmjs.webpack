@@ -1027,3 +1027,80 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'example_package.extras',
             'example_package.extras.min',
         ])
+
+
+@unittest.skipIf(karma is None, 'calmjs.dev or its karma module not available')
+class KarmatoolchainIntegrationTestCase(unittest.TestCase):
+    """
+    Test out the karma toolchain, involving webpack completely along
+    with the karma testing framework as defined by calmjs.dev
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._cwd = os.getcwd()
+        utils.setup_class_install_environment(
+            cls, Driver, ['calmjs.webpack', 'calmjs.dev'], production=False)
+
+        # for the duration of this test, operate in the tmpdir where the
+        # node_modules are available.
+        os.chdir(cls._env_root)
+
+        # this is done after the above, as the setup of the following
+        # integration harness will stub out the root distribution which
+        # will break the installation of real tools.
+        utils.setup_class_integration_environment(cls)
+        # also our test data.
+        cls_setup_webpack_example_package(cls)
+
+    @classmethod
+    def tearDownClass(cls):
+        # ditto, as per above.
+        if skip_full_toolchain_test()[0]:  # pragma: no cover
+            return
+        utils.teardown_class_integration_environment(cls)
+        os.chdir(cls._cwd)
+        utils.rmtree(cls._cls_tmpdir)
+
+    def test_karma_test_runner_basic(self):
+        # utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', 'webpack', 'example.package',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+    def test_karma_test_runner_standalone_artifact(self):
+        """
+        what's the purpose of tests if they can't be executed any time,
+        anywhere, against anything?
+        """
+
+        # utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        # first, generate our bundle.
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package', '--export-target',
+                export_target])
+        self.assertTrue(exists(export_target))
+
+        # leverage the karma run command to run the tests provided by
+        # the example.package against the resulting artifact.
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', 'run',
+                '--test-package', 'example.package',
+                # TODO make this argument optional
+                '--test-registry', self.registry_name + '.tests',
+                '--artifact', export_target,
+                # this is critical
+                '--toolchain-package', 'calmjs.webpack',
+            ])
+        # tests should pass against the resultant bundle
+        self.assertEqual(e.exception.args[0], 0)
