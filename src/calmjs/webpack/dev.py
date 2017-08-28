@@ -27,7 +27,7 @@ from calmjs.parse.parsers.es5 import parse
 
 from calmjs.webpack.base import WEBPACK_CONFIG
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
-from calmjs.webpack.interrogation import probe
+from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,8 @@ def karma_webpack(spec):
             logger.debug('processing artifact file %r', p)
             with open(p) as fd:
                 try:
-                    for module_name in probe(parse(fd.read())):
+                    for module_name in probe_calmjs_webpack_module_names(
+                            parse(fd.read())):
                         externals[module_name] = {
                             "root": ["__calmjs__", "modules", module_name]
                         }

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-A collection of functions for interrogating a webpack artifact so that
-useful information may be extracted.
+A collection of functions for interrogating JavaScript/Node.js files, so
+that useful information can be extracted from webpack artifacts or input
+source files.
 """
 
 from calmjs.parse.asttypes import Assign
@@ -22,7 +23,7 @@ visitor = ConditionalVisitor()
 extract = visitor.extract
 
 
-def probe(node):
+def probe_calmjs_webpack_module_names(node):
     # first, find the initial function expression
     webpack_wrapper = extract(node, lambda n: isinstance(n, FuncExpr))
     # this is the factory argument

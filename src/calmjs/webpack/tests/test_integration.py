@@ -1011,7 +1011,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'example/package/bad',
             'example/package/main',
             'example/package/math',
-        ], contents, interrogation.probe, [
+        ], contents, interrogation.probe_calmjs_webpack_module_names, [
             'example_package',
             'example_package.min',
         ])
@@ -1023,7 +1023,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'example/package/main',
             'example/package/math',
             'mockquery',
-        ], contents, interrogation.probe, [
+        ], contents, interrogation.probe_calmjs_webpack_module_names, [
             'example_package.extras',
             'example_package.extras.min',
         ])

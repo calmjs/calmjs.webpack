@@ -37,12 +37,12 @@ class WebpackTestCase(unittest.TestCase):
         for a in args:
             self.assertEqual(sorted(result), sorted(f(a)))
 
-    def test_probe(self):
+    def test_probe_calmjs_webpack_module_names(self):
         self.assertAllEqual([
             'example/package/bad',
             'example/package/main',
             'example/package/math',
-        ], interrogation.probe, _base)
+        ], interrogation.probe_calmjs_webpack_module_names, _base)
 
         self.assertAllEqual([
             'example/package/bare',
@@ -51,14 +51,15 @@ class WebpackTestCase(unittest.TestCase):
             'example/package/main',
             'example/package/math',
             'mockquery',
-        ], interrogation.probe, _extras)
+        ], interrogation.probe_calmjs_webpack_module_names, _extras)
 
-        self.assertEqual([], interrogation.probe(_empty))
+        self.assertEqual([], interrogation.probe_calmjs_webpack_module_names(
+            _empty))
 
     def test_probe_failure(self):
         # simply TypeError is raised
         with self.assertRaises(TypeError):
-            interrogation.probe(parse(read(join(
+            interrogation.probe_calmjs_webpack_module_names(parse(read(join(
                 _root, 'example_package.js')).replace(
                 '__calmjs__', '__not_calmjs__')))
 
