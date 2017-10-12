@@ -4,13 +4,10 @@ import textwrap
 
 from calmjs.parse.parsers.es5 import parse as es5
 from calmjs.parse.unparsers.es5 import pretty_print
-from calmjs.webpack.visitor import ReplacementVisitor
 
 from calmjs.webpack.manipulation import create_calmjs_require
 from calmjs.webpack.manipulation import extract_dynamic_require
 from calmjs.webpack.manipulation import convert_dynamic_require
-
-visitor = ReplacementVisitor()
 
 
 def parse_first_expr(src):

@@ -7,15 +7,15 @@ from functools import partial
 from calmjs.parse import es5
 from calmjs.parse.asttypes import FunctionCall
 from calmjs.parse.asttypes import String
-from calmjs.parse.visitors.generic import ReprVisitor
-from calmjs.parse.visitors.generic import ConditionalVisitor
+from calmjs.parse.walkers import ReprWalker
+from calmjs.parse.walkers import Walker
 
-from calmjs.webpack.visitor import _replace_list_item
-from calmjs.webpack.visitor import _replace_list_items
-from calmjs.webpack.visitor import _replace_obj_attr
-from calmjs.webpack.visitor import ReplacementVisitor
+from calmjs.webpack.walkers import _replace_list_item
+from calmjs.webpack.walkers import _replace_list_items
+from calmjs.webpack.walkers import _replace_obj_attr
+from calmjs.webpack.walkers import ReplacementWalker
 
-astrepr = partial(ReprVisitor().visit, indent=2)
+astrepr = partial(ReprWalker().walk, indent=2)
 
 
 class ReplacementHelperTestCase(unittest.TestCase):
@@ -70,7 +70,7 @@ class ReplacementHelperTestCase(unittest.TestCase):
 class ReplacementTestCase(unittest.TestCase):
 
     def test_probe_commonjs_static(self):
-        cond = ConditionalVisitor()
+        walker = Walker()
         tree = es5("""
         f1();
         f2();
@@ -78,12 +78,12 @@ class ReplacementTestCase(unittest.TestCase):
         f4();
         """)
         # our target is the third function call (skip 2)
-        node = cond.extract(tree, lambda n: isinstance(n, FunctionCall), 2)
+        node = walker.extract(tree, lambda n: isinstance(n, FunctionCall), 2)
         nodemap = {
             node: String('"test string"')
         }
 
-        replacer = ReplacementVisitor()
+        replacer = ReplacementWalker()
         replacer.replace(tree, nodemap)
         # reparse
         self.assertEqual(str(tree), textwrap.dedent("""
@@ -91,4 +91,4 @@ class ReplacementTestCase(unittest.TestCase):
         f2();
         "test string";
         f4();
-        """).strip())
+        """).lstrip())

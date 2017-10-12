@@ -17,7 +17,7 @@ from calmjs import runtime
 from calmjs.utils import pretty_logging
 
 from calmjs.parse.parsers.es5 import parse
-from calmjs.parse.visitors.generic import ReprVisitor
+from calmjs.parse.walkers import ReprWalker
 
 try:
     from calmjs.dev import karma
@@ -330,11 +330,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # interrogation tests, test that the ones store statically match
         # up with the prebuilt ones stored in examples at the source
         # tree level.
-        rv = ReprVisitor()
+        rv = ReprWalker()
         for key in keys:
             with open(prebuilts[key]) as fd:
-                prebuilt = rv.visit(parse(fd.read()))
-                generated = rv.visit(parse(contents[key]))
+                prebuilt = rv.walk(parse(fd.read()))
+                generated = rv.walk(parse(contents[key]))
                 self.assertEqual(prebuilt, generated)
 
     def test_webpack_toolchain_broken_manual_setup(self):

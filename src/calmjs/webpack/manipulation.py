@@ -11,10 +11,10 @@ from calmjs.parse.asttypes import Identifier
 from calmjs.parse.asttypes import String
 
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
-from calmjs.webpack.interrogation import visitor
-from calmjs.webpack.visitor import ReplacementVisitor
+from calmjs.webpack.interrogation import walker
+from calmjs.webpack.walkers import ReplacementWalker
 
-replacer = ReplacementVisitor()
+replacer = ReplacementWalker()
 
 
 def _non_asttypes_string(arg):
@@ -34,7 +34,7 @@ def extract_dynamic_require(node):
     arguments (i.e. first argument not String).
     """
 
-    return visitor.generate(node, lambda n: (
+    return walker.filter(node, lambda n: (
         isinstance(n, FunctionCall) and
         isinstance(n.identifier, Identifier) and
         n.identifier.value == 'require' and

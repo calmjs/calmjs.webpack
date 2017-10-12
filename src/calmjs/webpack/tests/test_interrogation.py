@@ -67,7 +67,7 @@ class WebpackTestCase(unittest.TestCase):
         # There will be cases where the module names provided are rather
         # special, and we need to be sure that we cover at least some of
         # them.
-        for o in interrogation.visitor.generate(
+        for o in interrogation.walker.filter(
                 _typical_names, lambda node: isinstance(node, Object)):
             self.assertEqual(
                 'typical', interrogation.to_identifier(o.properties[0].left))
@@ -85,7 +85,7 @@ class WebpackTestCase(unittest.TestCase):
             "\u3042",
             "    ",
         ]
-        for a, r in zip(answers, (o for o in interrogation.visitor.generate(
+        for a, r in zip(answers, (o for o in interrogation.walker.filter(
                 _unusual_names, lambda node: isinstance(node, Object)))):
             self.assertEqual(
                 a, interrogation.to_identifier(r.properties[0].left))

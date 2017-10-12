@@ -17,15 +17,14 @@ from calmjs.parse.asttypes import Object
 from calmjs.parse.asttypes import Return
 from calmjs.parse.asttypes import String
 
-from calmjs.parse.visitors.generic import ConditionalVisitor
+from calmjs.parse.walkers import Walker
 
-visitor = ConditionalVisitor()
-extract = visitor.extract
+walker = Walker()
 
 
 def probe_calmjs_webpack_module_names(node):
     # first, find the initial function expression
-    webpack_wrapper = extract(node, lambda n: isinstance(n, FuncExpr))
+    webpack_wrapper = walker.extract(node, lambda n: isinstance(n, FuncExpr))
     # this is the factory argument
     factory_name = webpack_wrapper.parameters[1].value
 
@@ -57,7 +56,7 @@ def probe_calmjs_webpack_module_names(node):
 
 
 def verify_factory(node, factory_name):
-    return extract(node, lambda n: (
+    return walker.extract(node, lambda n: (
         isinstance(n, Assign) and
         isinstance(n.left, BracketAccessor) and
         n.left.expr.value == '"__calmjs__"' and
@@ -66,7 +65,7 @@ def verify_factory(node, factory_name):
 
 
 def extract_entry_index(node):
-    return int(extract(node, lambda n: (
+    return int(walker.extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
         n.expr.args.items and
@@ -77,7 +76,7 @@ def extract_entry_index(node):
 
 
 def verify_factory_min(node, factory_name):
-    return extract(node, lambda n: (
+    return walker.extract(node, lambda n: (
         isinstance(n, Assign) and
         isinstance(n.left, DotAccessor) and
         n.left.identifier.value == '__calmjs__' and
@@ -86,7 +85,7 @@ def verify_factory_min(node, factory_name):
 
 
 def extract_entry_index_min(node):
-    return int(extract(node, lambda n: (
+    return int(walker.extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, Comma) and
         isinstance(n.expr.right, FunctionCall) and
@@ -97,7 +96,7 @@ def extract_entry_index_min(node):
 
 def extract_loader_index(node):
     try:
-        return int(extract(node, lambda n: (
+        return int(walker.extract(node, lambda n: (
             isinstance(n, FunctionCall)
         )).args.items[0].value)
     except ValueError:
@@ -106,7 +105,7 @@ def extract_loader_index(node):
 
 
 def extract_module(node, index):
-    return extract(node, lambda n: (
+    return walker.extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
         n.expr.args.items and
@@ -115,7 +114,7 @@ def extract_module(node, index):
 
 
 def extract_exported_calmjs_names(module_node):
-    return [to_identifier(p.left) for p in extract(
+    return [to_identifier(p.left) for p in walker.extract(
         module_node, lambda n: (
             isinstance(n, Assign) and
             isinstance(n.left, DotAccessor) and

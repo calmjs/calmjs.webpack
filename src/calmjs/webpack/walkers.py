@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Various visitors.
+Various walkers.
 """
 
 from calmjs.parse.asttypes import Node
@@ -23,7 +23,7 @@ def _replace_obj_attr(tree, attr, itemmap):
         setattr(tree, attr, replacement)
 
 
-class ReplacementVisitor(object):
+class ReplacementWalker(object):
 
     def __init__(self):
         self.methods = [

@@ -267,7 +267,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
         with open(config_js['resolve']['alias']['__calmjs_loader__']) as fd:
             calmjs_module = fd.read()
-            # should probably use the parser in slimit for verification
+            # should probably use the parser for verification
             self.assertIn('require("example/module")', calmjs_module)
             self.assertIn('calmjs_bootstrap.modules', calmjs_module)
 
@@ -404,7 +404,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # which got disabled.
         with open(join(tmpdir, '__calmjs_bootstrap__.js')) as fd:
             calmjs_module = fd.read()
-            # should probably use the parser in slimit for verification
+            # should probably use the parser for verification
             self.assertIn(
                 '"example/module": require("example/module")',
                 calmjs_module
@@ -497,6 +497,6 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
         with open(config_js['resolve']['alias']['__calmjs_loader__']) as fd:
             calmjs_module = fd.read()
-            # should probably use the parser in slimit for verification
+            # should probably use the parser for verification
             self.assertIn('require("example/module")', calmjs_module)
             self.assertIn('calmjs_bootstrap.modules', calmjs_module)
