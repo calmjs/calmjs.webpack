@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 import unittest
 import textwrap
+import json
+from io import StringIO
 
+from calmjs.parse import io
 from calmjs.parse.parsers.es5 import parse as es5
 from calmjs.parse.unparsers.es5 import pretty_print
 
 from calmjs.webpack.manipulation import create_calmjs_require
 from calmjs.webpack.manipulation import extract_dynamic_require
 from calmjs.webpack.manipulation import convert_dynamic_require
+from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 
 
 def parse_first_expr(src):
@@ -162,3 +166,73 @@ class ConversionTestCase(unittest.TestCase):
           var redefined = require('__calmjs_loader__').require(dynamic);
         });
         """).lstrip(), pretty_print(convert_dynamic_require(node)))
+
+
+class UnparserTestCase(unittest.TestCase):
+    """
+    Using the unparser version.
+    """
+
+    def readwrite(self, source):
+        unparser = convert_dynamic_require_unparser()
+        original = StringIO(source)
+        original.name = 'source.js'
+        output = StringIO()
+        output.name = 'output.js'
+        srcmap = StringIO()
+        srcmap.name = 'output.js.map'
+        io.write(unparser, io.read(es5, original), output, srcmap)
+        return output, srcmap
+
+    def test_convert_calmjs_require_static(self):
+        output, srcmap = self.readwrite("require('static');")
+        # should be unchanged.
+        self.assertEqual(textwrap.dedent("""
+        require('static');
+
+        //# sourceMappingURL=output.js.map
+        """).lstrip(), output.getvalue())
+        self.assertEqual({
+            'file': 'output.js',
+            'mappings': 'AAAA;',
+            'names': [],
+            'sources': ['source.js'],
+            'version': 3,
+        }, json.loads(srcmap.getvalue()))
+
+    def test_convert_calmjs_require_dynamic(self):
+        output, srcmap = self.readwrite("require(dynamic);")
+        # should be modified.
+        self.assertEqual(textwrap.dedent("""
+        require('__calmjs_loader__').require(dynamic);
+
+        //# sourceMappingURL=output.js.map
+        """).lstrip(), output.getvalue())
+        self.assertEqual({
+            'file': 'output.js',
+            'mappings': '6BAAA;',
+            'names': [],
+            'sources': ['source.js'],
+            'version': 3,
+        }, json.loads(srcmap.getvalue()))
+
+    def test_dynamic_commonjs_in_static_amd(self):
+        output, srcmap = self.readwrite(textwrap.dedent("""
+        require(['jQuery', 'underscore'], function($, _) {
+            var dynamic_module = require(dynamic);
+        });
+        """).lstrip())
+        self.assertEqual(textwrap.dedent("""
+        require(['jQuery', 'underscore'], function($, _) {
+            var dynamic_module = require('__calmjs_loader__').require(dynamic);
+        });
+
+        //# sourceMappingURL=output.js.map
+        """).lstrip(), output.getvalue())
+        self.assertEqual({
+            'file': 'output.js',
+            'mappings': 'AAAA;IACI,qB,6BAAqB;AACzB;',
+            'names': [],
+            'sources': ['source.js'],
+            'version': 3,
+        }, json.loads(srcmap.getvalue()))

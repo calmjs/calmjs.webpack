@@ -10,6 +10,10 @@ from calmjs.parse.asttypes import Arguments
 from calmjs.parse.asttypes import Identifier
 from calmjs.parse.asttypes import String
 
+from calmjs.parse.unparsers.es5 import definitions
+from calmjs.parse.unparsers.base import BaseUnparser
+from calmjs.parse import rules
+
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.interrogation import walker
 from calmjs.webpack.walkers import ReplacementWalker
@@ -75,3 +79,24 @@ def convert_dynamic_require(tree):
     }
     replacer.replace(tree, nodemap)
     return tree
+
+
+def convert_dynamic_require_hook(dispatcher, tree):
+    """
+    Turn this into unparser compatible prewalk hook, by taking the
+    dispatcher argument.
+    """
+
+    return convert_dynamic_require(tree)
+
+
+def convert_dynamic_require_unparser(indent_str='    '):
+    """
+    The dynamic require unparser.
+    """
+
+    return BaseUnparser(
+        definitions=definitions,
+        rules=(rules.indent(indent_str=indent_str),),
+        prewalk_hooks=(convert_dynamic_require_hook,),
+    )

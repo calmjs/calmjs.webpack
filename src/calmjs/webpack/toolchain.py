@@ -17,22 +17,15 @@ from os.path import isdir
 from os.path import pathsep
 from subprocess import call
 
-# this may be deprecated/removed in the future, so we are doing this for
-# type checking only to make use of calmjs.parse
-from calmjs.vlqsm import SourceWriter
-
-from calmjs.toolchain import Toolchain
+from calmjs.toolchain import ES5Toolchain
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
 
-from calmjs.parse.exceptions import ECMASyntaxError
 from calmjs.parse.parsers.es5 import parse
-from calmjs.parse.unparsers.es5 import pretty_printer
-from calmjs.parse import sourcemap
 
-from calmjs.webpack.manipulation import convert_dynamic_require
+from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 
 from .dev import webpack_advice
@@ -150,35 +143,7 @@ def get_webpack_runtime_name(platform):
     return _PLATFORM_SPECIFIC_RUNTIME.get(platform, _DEFAULT_RUNTIME)
 
 
-def _null_transpiler(spec, reader, writer):
-    line = reader.readline()
-    while line:
-        writer.write(line)
-        line = reader.readline()
-
-
-def _webpack_transpiler(spec, reader, writer):
-    # ensure the reader is done from beginning
-    reader.seek(0)
-    # since calmjs.parse offers a comprehensive solution, the need for
-    # a custom half-baked class should be stripped.
-    stream = writer.stream if isinstance(writer, SourceWriter) else writer
-    # do the conversion
-    try:
-        tree = parse(reader.read())
-    except ECMASyntaxError:
-        # XXX plugin handlers should prevent it from getting to this
-        # stage.
-        return _null_transpiler(spec, reader, writer)
-    names, mappings = sourcemap.write(pretty_printer()(
-        convert_dynamic_require(tree)), stream)
-    # tack that back on
-    if isinstance(writer, SourceWriter):
-        writer.mappings = mappings
-    # else, solution TBD
-
-
-class WebpackToolchain(Toolchain):
+class WebpackToolchain(ES5Toolchain):
     """
     The toolchain that make use of webpack to generate an artifact.
     """
@@ -193,7 +158,15 @@ class WebpackToolchain(Toolchain):
         self._set_env_path_with_node_modules()
 
     def setup_transpiler(self):
-        self.transpiler = _webpack_transpiler
+        self.parser = parse
+        self.transpiler = convert_dynamic_require_unparser()
+
+    def transpile_modname_source_target(self, spec, modname, source, target):
+        # TODO check that source is actually a *.js file.
+        # should appropriately warn about things in loader plugins
+        # XXX seriously, implement loader plugins
+        return super(WebpackToolchain, self).transpile_modname_source_target(
+            spec, modname, source, target)
 
     def prepare(self, spec):
         """
