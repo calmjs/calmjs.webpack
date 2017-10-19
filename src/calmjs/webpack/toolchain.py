@@ -40,6 +40,7 @@ from .base import WEBPACK_EXTERNALS
 from .base import WEBPACK_OUTPUT_LIBRARY
 from .base import WEBPACK_ENTRY_POINT
 from .base import WEBPACK_OPTIMIZE_MINIMIZE
+from .base import VERIFY_IMPORTS
 from .base import DEFAULT_BOOTSTRAP_EXPORT
 from .base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
@@ -408,13 +409,15 @@ class WebpackToolchain(ES5Toolchain):
             # otherwise, use the simplified version.
             webpack_config['entry'] = alias[spec[WEBPACK_ENTRY_POINT]]
 
-        missing = self.check_alias_declared(alias, webpack_config['externals'])
-        if missing:
-            logger.warning(
-                "source file(s) referenced modules that are not in alias "
-                "or externals: %s",
-                ', '.join(sorted(repr(m) for m in missing))
-            )
+        if spec.get(VERIFY_IMPORTS, True):
+            missing = self.check_alias_declared(
+                alias, webpack_config['externals'])
+            if missing:
+                logger.warning(
+                    "source file(s) referenced modules that are not in alias "
+                    "or externals: %s",
+                    ', '.join(sorted(repr(m) for m in missing))
+                )
 
         self.write_webpack_config(spec, webpack_config)
         # record the webpack config to the spec

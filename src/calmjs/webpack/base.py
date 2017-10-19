@@ -20,6 +20,8 @@ WEBPACK_EXTERNALS = 'webpack_externals'
 WEBPACK_ENTRY_POINT = 'webpack_entry_point'
 # Enable the --optimize-minimize option for webpack
 WEBPACK_OPTIMIZE_MINIMIZE = 'webpack_optimize_minimize'
+# option for enabling the checking of imports; defaults to True.
+VERIFY_IMPORTS = 'verify_imports'
 
 # constants
 

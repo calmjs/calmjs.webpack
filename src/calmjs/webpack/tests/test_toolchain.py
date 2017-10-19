@@ -7,6 +7,7 @@ import os
 from os.path import exists
 from os.path import join
 
+from calmjs.parse.exceptions import ECMASyntaxError
 from calmjs.utils import pretty_logging
 from calmjs.toolchain import Spec
 from calmjs.toolchain import CONFIG_JS_FILES
@@ -611,3 +612,190 @@ class ToolchainUnitTestCase(unittest.TestCase):
             'module2': join(build_dir, 'module2.js'),
             'module3': join(build_dir, 'module3.js'),
         })
+
+    def test_assemble_alias_check_dynamic(self):
+        tmpdir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        webpack = toolchain.WebpackToolchain()
+
+        export_target = join(build_dir, 'export.js')
+        config_js = join(build_dir, 'config.js')
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            pass
+
+        with open(join(build_dir, 'some.pylike.module.js'), 'w'):
+            pass
+
+        with open(join(build_dir, 'jquery.min.js'), 'w'):
+            pass
+
+        with open(join(build_dir, 'underscore.min.js'), 'w'):
+            pass
+
+        with open(join(build_dir, 'module1.js'), 'w') as fd:
+            fd.write(
+                "define(['jquery', 'underscore', 'some.pylike.module'], "
+                "function(jquery, underscore, module) {"
+                "});"
+            )
+
+        with open(join(build_dir, 'module2.js'), 'w') as fd:
+            fd.write(
+                "define(['module1', 'underscore'], "
+                "function(module1, underscore) {"
+                "});"
+            )
+
+        with open(join(build_dir, 'module3.js'), 'w') as fd:
+            fd.write(
+                "'use strict';\n"
+                "var $ = require('jquery');\n"
+                "var _ = require('underscore');\n"
+                "var module2 = require('module2');\n"
+                "var dymamic = require(dynamic);\n"
+            )
+
+        spec = Spec(
+            build_dir=build_dir,
+            export_target=export_target,
+            webpack_config_js=config_js,
+            transpiled_modpaths={
+                'module1': 'module1',
+                'module2': 'module2',
+                'module3': 'module3',
+                'some.pylike.module': 'some.pylike.module',
+            },
+            # these are not actually transpiled sources, but will fit
+            # with the purposes of this test.
+            transpiled_targetpaths={
+                'module1': 'module1.js',
+                'module2': 'module2.js',
+                'module3': 'module3.js',
+                'some.pylike.module': 'some.pylike.module.js',
+            },
+            bundled_modpaths={
+                'jquery': 'jquery',
+                'underscore': 'underscore',
+            },
+            bundled_targetpaths={
+                'jquery': 'jquery.min.js',
+                'underscore': 'underscore.min.js',
+            },
+            export_module_names=['module1', 'module2', 'module3'],
+            webpack_entry_point='__calmjs__',
+            webpack_output_library='__calmjs__',
+            webpack_externals={'__calmjs__': {
+                "root": '__calmjs__',
+                "amd": '__calmjs__',
+                "commonjs": ['global', '__calmjs__'],
+                "commonjs2": ['global', '__calmjs__'],
+            }},
+        )
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+
+        with pretty_logging(
+                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        # the main config file
+        # check that they all exists
+        self.assertTrue(exists(config_js))
+
+        # TODO use parser to parse this.
+        with open(config_js) as fd:
+            # strip off the header and footer
+            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+
+        self.assertNotIn('WARNING', s.getvalue())
+
+    def test_assemble_alias_malformed_somehow(self):
+        tmpdir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        webpack = toolchain.WebpackToolchain()
+
+        export_target = join(build_dir, 'export.js')
+        config_js = join(build_dir, 'config.js')
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            pass
+
+        with open(join(build_dir, 'underscore.js'), 'w') as fd:
+            # somehow this is malformed.
+            fd.write("function() {});")
+
+        with open(join(build_dir, 'module1.js'), 'w') as fd:
+            fd.write("define(['underscore'], function(underscore) {});")
+
+        spec = Spec(
+            build_dir=build_dir,
+            export_target=export_target,
+            webpack_config_js=config_js,
+            transpiled_modpaths={
+                'module1': 'module1',
+            },
+            transpiled_targetpaths={
+                'module1': 'module1.js',
+            },
+            bundled_modpaths={
+                'underscore': 'underscore',
+            },
+            bundled_targetpaths={
+                'underscore': 'underscore.js',
+            },
+            export_module_names=['module1'],
+        )
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+
+        with self.assertRaises(ECMASyntaxError):
+            webpack.assemble(spec)
+
+        # the main config file wouldn't be created due to the syntax
+        # error.
+        self.assertFalse(exists(config_js))
+
+    def test_assemble_alias_malformed_check_skipped(self):
+        tmpdir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        webpack = toolchain.WebpackToolchain()
+
+        export_target = join(build_dir, 'export.js')
+        config_js = join(build_dir, 'config.js')
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            pass
+
+        with open(join(build_dir, 'underscore.js'), 'w') as fd:
+            # somehow this is malformed.
+            fd.write("function() {});")
+
+        with open(join(build_dir, 'module1.js'), 'w') as fd:
+            fd.write("define(['underscore'], function(underscore) {});")
+
+        spec = Spec(
+            build_dir=build_dir,
+            export_target=export_target,
+            webpack_config_js=config_js,
+            transpiled_modpaths={
+                'module1': 'module1',
+            },
+            transpiled_targetpaths={
+                'module1': 'module1.js',
+            },
+            bundled_modpaths={
+                'underscore': 'underscore',
+            },
+            bundled_targetpaths={
+                'underscore': 'underscore.js',
+            },
+            export_module_names=['module1'],
+            verify_imports=False,
+        )
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+
+        with pretty_logging(logger='calmjs.webpack', stream=mocks.StringIO()):
+            webpack.assemble(spec)
+
+        # the main config file will be created as the same check that
+        # caused the failure will no longer be triggered.
+        self.assertTrue(exists(config_js))
