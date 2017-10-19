@@ -22,8 +22,10 @@ from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
+from calmjs.interrogate import yield_module_imports
 
 from calmjs.parse.parsers.es5 import parse
+from calmjs.parse import io
 
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
@@ -261,6 +263,27 @@ class WebpackToolchain(ES5Toolchain):
                 spec['webpack_config_js'], 'w', encoding='utf8') as fd:
             fd.write(_WEBPACK_CONFIG_TEMPLATE % (config_dump, plugins_dump))
 
+    def check_alias_declared(self, alias, externals):
+        missing = set()
+        for modname, path in alias.items():
+            # look into how to throw in a preprocess hook to the
+            # unparser to report this, to maybe save on parse time.
+            if not exists(path):
+                logger.warning(
+                    "alias '%s' points to '%s' but file does not exist",
+                    modname, path,
+                )
+                continue
+
+            with codecs.open(path, 'r', encoding='utf8') as fd:
+                tree = io.read(parse, fd)
+
+            missing.update([
+                name for name in yield_module_imports(tree)
+                if not (name in alias or name in externals)
+            ])
+        return missing
+
     def assemble(self, spec):
         """
         Assemble the library by compiling everything and generate the
@@ -384,6 +407,14 @@ class WebpackToolchain(ES5Toolchain):
             # if externals has been defined, use the complete lookup module
             # otherwise, use the simplified version.
             webpack_config['entry'] = alias[spec[WEBPACK_ENTRY_POINT]]
+
+        missing = self.check_alias_declared(alias, webpack_config['externals'])
+        if missing:
+            logger.warning(
+                "source file(s) referenced modules that are not in alias "
+                "or externals: %s",
+                ', '.join(sorted(repr(m) for m in missing))
+            )
 
         self.write_webpack_config(spec, webpack_config)
         # record the webpack config to the spec

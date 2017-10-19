@@ -171,7 +171,15 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack = toolchain.WebpackToolchain()
         spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
         webpack.prepare(spec)
-        webpack.assemble(spec)
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        target = join(tmpdir, 'example', 'module.js')
+        self.assertIn(
+            "alias 'example/module' points to '%s' but file does not exist" % (
+                target),
+            s.getvalue(),
+        )
 
         # no bootstrap module with an explicit entry point
         self.assertFalse(exists(join(tmpdir, '__calmjs_bootstrap__.js')))
@@ -242,8 +250,17 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack = toolchain.WebpackToolchain()
         spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
         webpack.prepare(spec)
+
         # skip the compile step as those entries are manually applied.
-        webpack.assemble(spec)
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        target = join(tmpdir, 'example', 'module.js')
+        self.assertIn(
+            "alias 'example/module' points to '%s' but file does not exist" % (
+                target),
+            s.getvalue(),
+        )
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         with open(join(tmpdir, 'config.js')) as fd:
@@ -367,9 +384,15 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack.prepare(spec)
         # skip the compile step as those entries are manually applied.
 
-        with pretty_logging(
-                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+        with pretty_logging(logger='calmjs', stream=mocks.StringIO()) as s:
             webpack.assemble(spec)
+
+        target = join(tmpdir, 'example', 'module.js')
+        self.assertIn(
+            "alias 'example/module' points to '%s' but file does not exist" % (
+                target),
+            s.getvalue(),
+        )
 
         # this is the default, as the above spec does not define this.
         self.assertIn(
@@ -461,8 +484,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         webpack.prepare(spec)
         # skip the compile step as those entries are manually applied.
 
-        with pretty_logging(
-                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+        with pretty_logging(logger='calmjs', stream=mocks.StringIO()) as s:
             webpack.assemble(spec)
 
         self.assertIn(
@@ -474,29 +496,118 @@ class ToolchainUnitTestCase(unittest.TestCase):
             "exporting complete calmjs bootstrap module with "
             "webpack.output.library as 'example' (expected '__calmjs__')",
             s.getvalue())
+        target = join(tmpdir, 'example', 'module.js')
+        self.assertIn(
+            "alias 'example/module' points to '%s' but file does not exist" % (
+                target),
+            s.getvalue(),
+        )
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         with open(join(tmpdir, 'config.js')) as fd:
             # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
-        self.assertEqual(config_js, spec['webpack_config'])
+            config = json.loads(''.join(fd.readlines()[5:-6]))
+        self.assertEqual(config, spec['webpack_config'])
 
         # the bootstrap is generated and is the entry point.
         calmjs_bootstrap_filename = join(tmpdir, '__calmjs_bootstrap__.js')
-        self.assertEqual(config_js['entry'], calmjs_bootstrap_filename)
+        self.assertEqual(config['entry'], calmjs_bootstrap_filename)
         self.assertTrue(exists(calmjs_bootstrap_filename))
         # note that the webpack.output.library is as configured
-        self.assertEqual('example', config_js['output']['library'])
+        self.assertEqual('example', config['output']['library'])
 
-        self.assertEqual(config_js['resolve']['alias'], {
+        self.assertEqual(config['resolve']['alias'], {
             '__calmjs_loader__': join(tmpdir, '__calmjs_loader__.js'),
             'example/module': join(tmpdir, 'example', 'module.js'),
             'bundled_pkg': join(tmpdir, 'bundled_pkg.js'),
             'bundled_dir': join(tmpdir, 'bundled_dir'),
         })
 
-        with open(config_js['resolve']['alias']['__calmjs_loader__']) as fd:
+        with open(config['resolve']['alias']['__calmjs_loader__']) as fd:
             calmjs_module = fd.read()
             # should probably use the parser for verification
             self.assertIn('require("example/module")', calmjs_module)
             self.assertIn('calmjs_bootstrap.modules', calmjs_module)
+
+    def test_assemble_alias_check(self):
+        # for the assemble related tests.
+        tmpdir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        webpack = toolchain.WebpackToolchain()
+
+        export_target = join(build_dir, 'export.js')
+        config_js = join(build_dir, 'config.js')
+
+        with open(join(tmpdir, 'webpack'), 'w'):
+            pass
+
+        with open(join(build_dir, 'module1.js'), 'w') as fd:
+            fd.write(
+                "define(['underscore', 'some.pylike.module'], "
+                "function(underscore, module) {"
+                "});"
+            )
+
+        with open(join(build_dir, 'module2.js'), 'w') as fd:
+            fd.write(
+                "define(['module1', 'underscore'], "
+                "function(module1, underscore) {"
+                "});"
+            )
+
+        with open(join(build_dir, 'module3.js'), 'w') as fd:
+            fd.write(
+                "'use strict';\n"
+                "var $ = require('jquery');\n"
+                "var module2 = require('module2');\n"
+            )
+
+        spec = Spec(
+            build_dir=build_dir,
+            export_target=export_target,
+            webpack_config_js=config_js,
+            transpiled_modpaths={
+                'module1': 'module1',
+                'module2': 'module2',
+                'module3': 'module3',
+            },
+            # these are not actually transpiled sources, but will fit
+            # with the purposes of this test.
+            transpiled_targetpaths={
+                'module1': 'module1.js',
+                'module2': 'module2.js',
+                'module3': 'module3.js',
+            },
+            # the "bundled" names were specified to be omitted.
+            bundled_modpaths={},
+            bundled_targetpaths={},
+            export_module_names=['module1', 'module2', 'module3'],
+        )
+        spec[webpack.webpack_bin_key] = join(tmpdir, 'webpack')
+
+        with pretty_logging(
+                logger='calmjs.webpack', stream=mocks.StringIO()) as s:
+            webpack.assemble(spec)
+
+        # the main config file
+        # check that they all exists
+        self.assertTrue(exists(config_js))
+
+        # TODO use parser to parse this.
+        with open(config_js) as fd:
+            # strip off the header and footer
+            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+
+        self.assertIn('WARNING', s.getvalue())
+        self.assertIn(
+            "source file(s) referenced modules that are not in alias or "
+            "externals: "
+            "'jquery', 'some.pylike.module', 'underscore'",
+            s.getvalue()
+        )
+
+        self.assertEqual(config_js['resolve']['alias'], {
+            'module1': join(build_dir, 'module1.js'),
+            'module2': join(build_dir, 'module2.js'),
+            'module3': join(build_dir, 'module3.js'),
+        })
