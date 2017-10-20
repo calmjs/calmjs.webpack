@@ -3,9 +3,11 @@
 The calmjs runtime collection
 """
 
+from argparse import SUPPRESS
 from calmjs.runtime import SourcePackageToolchainRuntime
 
 from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
+from calmjs.webpack.base import VERIFY_IMPORTS
 from calmjs.webpack.dist import extras_calmjs_methods
 from calmjs.webpack.dist import sourcepath_methods_map
 from calmjs.webpack.dist import calmjs_module_registry_methods
@@ -94,6 +96,19 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             help='enable the optimize minimize option',
         )
 
+        argparser.add_argument(
+            '--skip-validate-imports', action='store_false',
+            dest=VERIFY_IMPORTS, default=True,
+            help="don't run the import validation; skip validation of imports "
+                 "(i.e. define and require statements) across all input "
+                 "source files for any unsatisfied declarations",
+        )
+
+        argparser.add_argument(
+            '--validate-imports', action='store_true',
+            dest=VERIFY_IMPORTS, help=SUPPRESS,
+        )
+
     def create_spec(
             self, source_package_names=(), export_target=None,
             working_dir=None,
@@ -102,6 +117,7 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             source_registry_method='all',
             sourcepath_method='all', bundlepath_method='all',
             webpack_optimize_minimize=False,
+            verify_imports=True,
             toolchain=None, **kwargs):
         """
         Accept all arguments, but also the explicit set of arguments
@@ -120,6 +136,7 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             sourcepath_method=sourcepath_method,
             bundlepath_method=bundlepath_method,
             webpack_optimize_minimize=webpack_optimize_minimize,
+            verify_imports=verify_imports,
         )
 
 

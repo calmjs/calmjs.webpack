@@ -15,6 +15,7 @@ from calmjs.npm import Driver
 from calmjs.cli import node
 from calmjs import runtime
 from calmjs.utils import pretty_logging
+from calmjs.registry import get as get_registry
 
 from calmjs.parse.parsers.es5 import parse
 from calmjs.parse.walkers import ReprWalker
@@ -996,6 +997,59 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         """, export_target)
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '2\n4\n')
+
+    def test_runtime_example_package_bad_import(self):
+        fault_js = join(self._ep_root, 'fault.js')
+        with open(fault_js, 'w') as fd:
+            fd.write(
+                '"use strict";\n'
+                'require("no_such_module");\n'
+            )
+
+        record = get_registry(self.registry_name).records['example.package']
+        self.addCleanup(record.pop, 'example/package/fault')
+        record['example/package/fault'] = fault_js
+
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 1)
+
+        self.assertIn(
+            "WARNING calmjs.webpack.toolchain source file(s) referenced "
+            "modules that are not in alias or externals: 'no_such_module'",
+            sys.stderr.getvalue()
+        )
+
+    def test_runtime_example_package_bad_import_skip_check(self):
+        fault_js = join(self._ep_root, 'fault.js')
+        with open(fault_js, 'w') as fd:
+            fd.write(
+                '"use strict";\n'
+                'require("no_such_module");\n'
+            )
+
+        record = get_registry(self.registry_name).records['example.package']
+        self.addCleanup(record.pop, 'example/package/fault')
+        record['example/package/fault'] = fault_js
+
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package', '--skip-validate-imports',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 1)
+        self.assertNotIn("WARNING", sys.stderr.getvalue())
+        # because webpack failed.
+        self.assertIn("CRITICAL", sys.stderr.getvalue())
 
     # for asserting that the generated artifacts with the current or
     # newly instantiated environment also can be correctly interrogated.
