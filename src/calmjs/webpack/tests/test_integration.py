@@ -640,10 +640,10 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 0)
         out = ' '.join(i.strip() for i in sys.stdout.getvalue().splitlines())
         self.assertIn(
-            '--export-target EXPORT_TARGET output filename; '
+            '--export-target export_target output filename; '
             'defaults to last ${package_name}.js ', out)
         self.assertIn(
-            '--working-dir WORKING_DIR the working directory; '
+            '--working-dir working_dir the working directory; '
             'for this tool it will be used as the base directory to '
             'find source files declared for bundling; ', out)
         self.assertIn('default is current working directory', out)
