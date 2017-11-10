@@ -6,8 +6,12 @@ calmjs webpack cli tools.
 import logging
 
 from calmjs.toolchain import Spec
+from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
+
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import CALMJS_MODULE_REGISTRY_NAMES
+from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY_NAME
+
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import GENERATE_SOURCE_MAP
 from calmjs.toolchain import SOURCE_PACKAGE_NAMES
@@ -19,6 +23,7 @@ from calmjs.webpack.base import WEBPACK_OUTPUT_LIBRARY
 from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
 from calmjs.webpack.base import VERIFY_IMPORTS
 
+from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
@@ -38,6 +43,7 @@ def create_spec(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
         sourcepath_method='all', bundlepath_method='all',
+        calmjs_loaderplugin_registry_name=CALMJS_WEBPACK_LOADERPLUGINS,
         calmjs_compat=True,
         webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
         webpack_output_library=True,
@@ -226,16 +232,22 @@ def create_spec(
     spec[SOURCE_PACKAGE_NAMES] = package_names
     spec[WEBPACK_OPTIMIZE_MINIMIZE] = webpack_optimize_minimize
     spec[VERIFY_IMPORTS] = verify_imports
+    spec[CALMJS_LOADERPLUGIN_REGISTRY_NAME] = calmjs_loaderplugin_registry_name
 
-    spec['transpile_sourcepath'] = generate_transpile_sourcepaths(
-        package_names=package_names,
-        registries=source_registries,
-        method=sourcepath_method,
+    spec_update_sourcepath_filter_loaderplugins(
+        spec, generate_transpile_sourcepaths(
+            package_names=package_names,
+            registries=source_registries,
+            method=sourcepath_method,
+        ), 'transpile_sourcepath',
     )
-    spec['bundle_sourcepath'] = generate_bundle_sourcepaths(
-        package_names=package_names,
-        working_dir=working_dir,
-        method=bundlepath_method,
+
+    spec_update_sourcepath_filter_loaderplugins(
+        spec, generate_bundle_sourcepaths(
+            package_names=package_names,
+            working_dir=working_dir,
+            method=bundlepath_method,
+        ), 'bundle_sourcepath',
     )
 
     # assume the entry point is a sane value
@@ -311,6 +323,7 @@ def compile_all(
         package_names, export_target=None, working_dir=None, build_dir=None,
         source_registry_method='all', source_registries=None,
         sourcepath_method='all', bundlepath_method='all',
+        calmjs_loaderplugin_registry_name=CALMJS_WEBPACK_LOADERPLUGINS,
         calmjs_compat=True,
         webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
         webpack_output_library=True,
@@ -346,6 +359,7 @@ def compile_all(
         source_registries=source_registries,
         sourcepath_method=sourcepath_method,
         bundlepath_method=bundlepath_method,
+        calmjs_loaderplugin_registry_name=calmjs_loaderplugin_registry_name,
         calmjs_compat=calmjs_compat,
         webpack_entry_point=webpack_entry_point,
         webpack_output_library=webpack_output_library,

@@ -11,12 +11,33 @@ from calmjs.parse.exceptions import ECMASyntaxError
 from calmjs.utils import pretty_logging
 from calmjs.toolchain import Spec
 from calmjs.toolchain import CONFIG_JS_FILES
+from calmjs.toolchain import LOADERPLUGIN_SOURCEPATH_MAPS
 from calmjs.npm import get_npm_version
 
 from calmjs.webpack import toolchain
+from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 
 from calmjs.testing import utils
 from calmjs.testing import mocks
+
+
+def mock_text_loader(working_dir):
+    module_root = join(working_dir, 'node_modules', 'text-loader')
+    module_cfg = join(module_root, 'package.json')
+    module_src = join(module_root, 'text.js')
+
+    # create the dummy text-loader package.json entry, using just the
+    # bare required information from the real package.
+    os.makedirs(module_root)
+    with open(module_cfg, 'w') as fd:
+        json.dump({
+            "name": "text-loader",
+            "version": "0.0.1",
+            "main": "index.js",
+            "license": "ISC",
+        }, fd)
+
+    return module_src
 
 
 class ToolchainBootstrapTestCase(unittest.TestCase):
@@ -799,3 +820,59 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # the main config file will be created as the same check that
         # caused the failure will no longer be triggered.
         self.assertTrue(exists(config_js))
+
+
+class ToolchainCompilePluginTestCase(unittest.TestCase):
+    """
+    Test the compile_plugin method
+    """
+
+    def setUp(self):
+        self.build_dir = utils.mkdtemp(self)
+        # mock the webpack executable
+        with open(join(self.build_dir, 'webpack'), 'w'):
+            pass
+
+    def test_compile_plugin_base(self):
+        working_dir = utils.mkdtemp(self)
+        mock_text_loader(working_dir)
+        src_dir = utils.mkdtemp(self)
+        src = join(src_dir, 'mod.js')
+
+        with open(src, 'w') as fd:
+            fd.write('hello world')
+
+        # prepare targets
+        target1 = 'mod1.txt'
+        target2 = join('namespace', 'mod2.txt')
+        target3 = join('nested', 'namespace', 'mod3.txt')
+        target4 = 'namespace.mod4.txt'
+
+        webpack = toolchain.WebpackToolchain()
+        spec = Spec(**{
+            'build_dir': self.build_dir,
+            'export_target': join(working_dir, 'export.js'),
+            webpack.webpack_bin_key: join(self.build_dir, 'webpack'),
+            LOADERPLUGIN_SOURCEPATH_MAPS: {
+                'text': {}
+            },
+            'working_dir': working_dir,
+        })
+        webpack.prepare(spec)
+
+        self.assertIn('text', spec[WEBPACK_RESOLVELOADER_ALIAS])
+        self.assertIn('loaderplugin_sourcepath', spec)
+
+        webpack.compile_loaderplugin_entry(spec, (
+            'text!mod1.txt', src, target1, 'mod1'))
+        webpack.compile_loaderplugin_entry(spec, (
+            'text!namespace/mod2.txt', src, target2, 'mod2'))
+        webpack.compile_loaderplugin_entry(spec, (
+            'text!nested/namespace/mod3.txt', src, target3, 'mod3'))
+        webpack.compile_loaderplugin_entry(spec, (
+            'text!namespace.mod4.txt', src, target4, 'mod4'))
+
+        self.assertTrue(exists(join(self.build_dir, target1)))
+        self.assertTrue(exists(join(self.build_dir, target2)))
+        self.assertTrue(exists(join(self.build_dir, target3)))
+        self.assertTrue(exists(join(self.build_dir, target4)))

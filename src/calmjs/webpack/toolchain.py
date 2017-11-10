@@ -18,10 +18,12 @@ from os.path import pathsep
 from subprocess import call
 
 from calmjs.toolchain import ES5Toolchain
+from calmjs.toolchain import ToolchainSpecCompileEntry
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
+from calmjs.toolchain import toolchain_spec_prepare_loaderplugins
 from calmjs.interrogate import yield_module_imports
 
 from calmjs.parse.parsers.es5 import parse
@@ -35,8 +37,10 @@ from .env import webpack_env
 from .exc import WebpackRuntimeError
 from .exc import WebpackExitError
 
+from .base import CALMJS_WEBPACK_LOADERPLUGINS
 from .base import WEBPACK_CONFIG
 from .base import WEBPACK_EXTERNALS
+from .base import WEBPACK_RESOLVELOADER_ALIAS
 from .base import WEBPACK_OUTPUT_LIBRARY
 from .base import WEBPACK_ENTRY_POINT
 from .base import WEBPACK_OPTIMIZE_MINIMIZE
@@ -154,6 +158,7 @@ class WebpackToolchain(ES5Toolchain):
     webpack_bin_key = 'webpack_bin'
     webpack_bin = get_webpack_runtime_name(sys.platform)
     webpack_config_name = 'config.js'
+    loaderplugin_registry = CALMJS_WEBPACK_LOADERPLUGINS
 
     def __init__(self, *a, **kw):
         super(WebpackToolchain, self).__init__(*a, **kw)
@@ -163,6 +168,13 @@ class WebpackToolchain(ES5Toolchain):
     def setup_transpiler(self):
         self.parser = parse
         self.transpiler = convert_dynamic_require_unparser()
+
+    def build_compile_entries(self):
+        return super(WebpackToolchain, self).build_compile_entries() + (
+            ToolchainSpecCompileEntry(
+                'loaderplugin', 'loaderplugin', 'loaderplugins',
+                __name__, logging.WARNING),
+        )
 
     def transpile_modname_source_target(self, spec, modname, source, target):
         # TODO check that source is actually a *.js file.
@@ -220,6 +232,8 @@ class WebpackToolchain(ES5Toolchain):
                 "'%s' must not be same as '%s'" % (EXPORT_TARGET, matched[0]))
 
         spec[WEBPACK_EXTERNALS] = spec.get(WEBPACK_EXTERNALS, {})
+        toolchain_spec_prepare_loaderplugins(
+            self, spec, 'loaderplugin', WEBPACK_RESOLVELOADER_ALIAS)
         webpack_advice(spec)
 
     def write_lookup_module(self, spec, target, template, requireline, joiner):
@@ -233,8 +247,6 @@ class WebpackToolchain(ES5Toolchain):
                 'module': json.dumps(m)
             }
             for m in spec[EXPORT_MODULE_NAMES]
-            if '!' not in m  # lazily filter out loader modules
-            # TODO fix this when loader modules are supported.
         ]
 
         export_module_path = join(spec[BUILD_DIR], target)
@@ -279,10 +291,17 @@ class WebpackToolchain(ES5Toolchain):
             with codecs.open(path, 'r', encoding='utf8') as fd:
                 tree = io.read(parse, fd)
 
-            missing.update([
+            # XXX the alias will need to be resolved separately...
+            new_missing = [
                 name for name in yield_module_imports(tree)
                 if not (name in alias or name in externals)
-            ])
+            ]
+            if new_missing:
+                logger.info(
+                    "modname '%s' has references not in modules: %s",
+                    modname, new_missing,
+                )
+            missing.update(new_missing)
         return missing
 
     def assemble(self, spec):
@@ -290,6 +309,14 @@ class WebpackToolchain(ES5Toolchain):
         Assemble the library by compiling everything and generate the
         required files for the final bundling.
         """
+
+        def generate_alias(prefix):
+            alias = {}
+            key = prefix + self.targetpath_suffix
+            for modname, target in spec.get(key, {}).items():
+                # the alias must point to the full path.
+                alias[modname] = join(spec[BUILD_DIR], *target.split('/'))
+            return alias
 
         # the build config is the file that will be passed to webpack for
         # building the final bundle.
@@ -307,6 +334,10 @@ class WebpackToolchain(ES5Toolchain):
                 'umdNamedDefine': True,
             },
             'resolve': {},
+            # TODO should omit this if no alias are found
+            'resolveLoader': {
+                'alias': spec.get(WEBPACK_RESOLVELOADER_ALIAS, {}),
+            },
             'externals': spec.get(WEBPACK_EXTERNALS, {}),
         }
         if WEBPACK_OUTPUT_LIBRARY in spec:
@@ -318,17 +349,16 @@ class WebpackToolchain(ES5Toolchain):
         # generate the aliases - yes, we include the bundled sources to
         # be explicit as there are cases where an alternative bundle may
         # be specified using optional advices.
-        source_prefixes = ('transpiled', 'bundled')
-        for prefix in source_prefixes:
-            key = prefix + '_targetpaths'
-            for modname, target in spec[key].items():
-                # XXX lazily filter out any potential loader modules
-                # XXX should only copy the ultimate final fragment into
-                # the target dir.
-                if '!' in modname:
-                    continue
-                # the alias must point to the full path.
-                alias[modname] = join(spec[BUILD_DIR], *target.split('/'))
+        main_prefixes = ('transpiled', 'bundled',)
+        for prefix in main_prefixes:
+            alias.update(generate_alias(prefix))
+
+        # Do the same for loaders, but keep it in a separate mapping for
+        # now.
+        other_prefixes = ('loaderplugins',)
+        other_alias = {}
+        for prefix in other_prefixes:
+            other_alias.update(generate_alias(prefix))
 
         # It is assumed that if WEBPACK_ENTRY_POINT is defined, it will
         # resolve into a target through the generated alias mapping.
@@ -419,6 +449,8 @@ class WebpackToolchain(ES5Toolchain):
                     ', '.join(sorted(repr(m) for m in missing))
                 )
 
+        # bring in the other unchecked alias (i.e. from loaderplugins)
+        alias.update(other_alias)
         self.write_webpack_config(spec, webpack_config)
         # record the webpack config to the spec
         spec[WEBPACK_CONFIG] = webpack_config
