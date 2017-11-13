@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import os
+import json
 from os import makedirs
 from os.path import join
 
@@ -195,7 +196,34 @@ def cls_setup_webpack_example_package(cls):
         )),
     ), 'example.package', '1.0', working_dir=cls.dist_dir)
 
-    # also include the entry_point information for this package
+    # webpack loaders setup/data
+
+    cls._loaderpkg_root = join(cls.dist_dir, 'example', 'loader')
+    makedirs(cls._loaderpkg_root)
+    json_data = join(cls._loaderpkg_root, 'raw.json')
+    with open(json_data, 'w') as fd:
+        fd.write('{"value": "hello"}')
+
+    # create a mock distribution for loaderplugins
+    utils.make_dummy_dist(None, (
+        ('requires.txt', ''),
+        ('calmjs_module_registry.txt', cls.registry_name),
+        ('package.json', json.dumps({
+            'dependencies': {
+                'text-loader': '~0.0.1',
+            },
+        })),
+        # ('package.json', '{"dependencies": {"text-loader":"~0.0.1"}}',),
+        ('entry_points.txt', (
+            '[%s]\n'
+            'example.loader = example.loader\n' % (
+                cls.registry_name,
+            )
+        )),
+    ), 'example.loader', '1.0', working_dir=cls.dist_dir)
+
+    # finally, include the entry_point information for calmjs.webpack
+    # to ensure correct function of certain default registries.
     utils.make_dummy_dist(None, (
         ('requires.txt', ''),
         ('entry_points.txt', (

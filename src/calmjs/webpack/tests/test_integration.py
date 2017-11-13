@@ -90,6 +90,17 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         utils.setup_class_integration_environment(cls)
         # also our test data.
         cls_setup_webpack_example_package(cls)
+
+        # with the locally defined example.loader package, attempt to
+        # also install the npm dependencies, if available.  Make use of
+        # the attributes defined by setup_class_install_environment, if
+        # this is not executed with an already available CALMJS_TEST_ENV
+        # to not modify an explicitly provided environment.
+        if not os.environ.get('CALMJS_TEST_ENV'):  # pragma: no cover
+            driver = Driver(working_dir=cls._cls_tmpdir)
+            driver.pkg_manager_install(
+                ['example.loader'], production=False, merge=True)
+
         # since our configuration paths will be at arbitrary locations
         # (i.e. temporary directories), NODE_PATH must be defined.
 
@@ -290,6 +301,49 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '[ 1 ]\n')
+
+    def test_webpack_toolchain_loaderplugin_text(self):
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        loaderplugin_sourcepath_maps = {
+            'text': {
+                'text!example/loader/single.json': join(
+                    self._loaderpkg_root, 'raw.json'),
+                # for nested loading
+                'text!text!example/loader/double.json': join(
+                    self._loaderpkg_root, 'raw.json'),
+            }
+        }
+        export_target = join(bundle_dir, 'example.loader.js')
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_sourcepath={},
+            bundle_sourcepath={},
+            loaderplugin_sourcepath_maps=loaderplugin_sourcepath_maps,
+            export_target=export_target,
+            build_dir=build_dir,
+            webpack_output_library='example.loader',
+        )
+        webpack(spec)
+
+        self.assertTrue(exists(export_target))
+
+        # verify that the bundle works with node, with the usage of the
+        # bundle through the __calmjs__ entry module
+        stdout, stderr = run_node("""
+        var artifact = %s
+        var raw = artifact.modules["text!example/loader/single.json"];
+        console.log(raw);
+        console.log(artifact.modules["text!text!example/loader/double.json"]);
+        """, export_target)
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, (
+            '{"value": "hello"}\n'
+            # second line is wrapped export of that module
+            'module.exports = "{\\"value\\": \\"hello\\"}"\n'
+        ))
 
     def test_webpack_toolchain_dynamic_with_calmjs_various(self):
         # This is still using the WebpackToolchain directly.
