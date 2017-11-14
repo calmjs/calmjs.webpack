@@ -322,10 +322,21 @@ The resulting calmjs run may then end up looking something like this:
 
     $ calmjs webpack example
 
-Handling of Webpack loader plugins
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Handling of Webpack loaders
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-XXX to be done
+If a provided JavaScript module imports a target using the inline loader
+syntax, the default registry ``calmjs.webpack.loaderplugins`` will
+resolve a generic handler to copy the target files.  This generic
+handler supports the chaining of loaders.  If this behavior is unwanted,
+a static registry is defined at ``calmjs.webpack.static.loaderplugins``
+for this purpose.  If a mix of the two is needed (e.g. where some
+specific loader require special handling), it is also possible to
+register the specific handler to override the generic handler for that
+specific loader.
+
+Do note that the package referenced by the handler that provides the
+actual webpack loader must be available, otherwise the build will fail.
 
 Troubleshooting
 ---------------

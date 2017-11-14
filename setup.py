@@ -63,11 +63,13 @@ setup(
     },
     entry_points={
         'calmjs.registry': [
-            'calmjs.webpack.loaderplugins'
-            ' = calmjs.loaderplugin:LoaderPluginRegistry',
+            'calmjs.webpack.loaderplugins = '
+            'calmjs.webpack.loaderplugin:AutogenWebpackLoaderPluginRegistry',
+            'calmjs.webpack.static.loaderplugins = '
+            'calmjs.loaderplugin:LoaderPluginRegistry',
         ],
-        'calmjs.webpack.loaderplugins': [
-            'text = calmjs.webpack.loaderplugin:TextPluginHandler',
+        'calmjs.webpack.static.loaderplugins': [
+            'text = calmjs.webpack.loaderplugin:WebpackLoaderHandler',
         ],
         'calmjs.runtime': [
             'webpack = calmjs.webpack.runtime:default',

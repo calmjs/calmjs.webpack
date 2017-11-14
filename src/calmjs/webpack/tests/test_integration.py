@@ -325,7 +325,64 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             build_dir=build_dir,
             webpack_output_library='example.loader',
         )
-        webpack(spec)
+        with pretty_logging(stream=StringIO()) as stream:
+            webpack(spec)
+
+        self.assertIn(
+            "AutogenWebpackLoaderPluginRegistry registry "
+            "'calmjs.webpack.loaderplugins' generated loader handler 'text'",
+            stream.getvalue(),
+        )
+
+        self.assertTrue(exists(export_target))
+
+        # verify that the bundle works with node, with the usage of the
+        # bundle through the __calmjs__ entry module
+        stdout, stderr = run_node("""
+        var artifact = %s
+        var raw = artifact.modules["text!example/loader/single.json"];
+        console.log(raw);
+        console.log(artifact.modules["text!text!example/loader/double.json"]);
+        """, export_target)
+
+        self.assertEqual(stderr, '')
+        self.assertEqual(stdout, (
+            '{"value": "hello"}\n'
+            # second line is wrapped export of that module
+            'module.exports = "{\\"value\\": \\"hello\\"}"\n'
+        ))
+
+    def test_webpack_toolchain_loaderplugin_text_static(self):
+        bundle_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
+        loaderplugin_sourcepath_maps = {
+            'text': {
+                'text!example/loader/single.json': join(
+                    self._loaderpkg_root, 'raw.json'),
+                # for nested loading
+                'text!text!example/loader/double.json': join(
+                    self._loaderpkg_root, 'raw.json'),
+            }
+        }
+        export_target = join(bundle_dir, 'example.loader.js')
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        registry_name = 'calmjs.webpack.static.loaderplugins'
+        spec = Spec(
+            transpile_sourcepath={},
+            bundle_sourcepath={},
+            calmjs_loaderplugin_registry_name=registry_name,
+            loaderplugin_sourcepath_maps=loaderplugin_sourcepath_maps,
+            export_target=export_target,
+            build_dir=build_dir,
+            webpack_output_library='example.loader',
+        )
+        with pretty_logging(stream=StringIO()) as stream:
+            webpack(spec)
+
+        self.assertIn(
+            "using loaderplugin registry "
+            "'calmjs.webpack.static.loaderplugins'", stream.getvalue())
 
         self.assertTrue(exists(export_target))
 

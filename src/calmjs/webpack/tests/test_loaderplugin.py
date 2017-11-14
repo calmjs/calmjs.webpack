@@ -4,13 +4,41 @@ from os.path import exists
 from os.path import join
 from calmjs.loaderplugin import LoaderPluginRegistry
 from calmjs.webpack import loaderplugin
+from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
 
 from calmjs.toolchain import Spec
 from calmjs.toolchain import Toolchain
+from calmjs.utils import pretty_logging
 from calmjs.testing.utils import mkdtemp
+from calmjs.testing.mocks import StringIO
 
 
-class WbepackLoaderPluginTestCase(unittest.TestCase):
+class AutoRegistryTestCase(unittest.TestCase):
+
+    def test_autoget(self):
+        reg = AutogenWebpackLoaderPluginRegistry('reg')
+        with pretty_logging(stream=StringIO()) as s:
+            result = reg.get_record('foo')
+        self.assertEqual('foo', result.name)
+        self.assertIn(
+            "AutogenWebpackLoaderPluginRegistry registry 'reg' generated "
+            "loader handler 'foo'", s.getvalue(),
+        )
+
+    def test_existing(self):
+        reg = AutogenWebpackLoaderPluginRegistry('reg')
+        reg.records['css'] = loaderplugin.WebpackLoaderHandler(reg, 'css')
+
+        with pretty_logging(stream=StringIO()) as s:
+            result = reg.get_record('css')
+        self.assertNotIn(
+            "AutogenWebpackLoaderPluginRegistry registry 'reg' generated "
+            "loader handler 'css'", s.getvalue(),
+        )
+        self.assertIs(result, reg.records['css'])
+
+
+class WebpackLoaderPluginTestCase(unittest.TestCase):
     """
     Upstream technically tested some of these, but doing it specifically
     here for posterity (and also for upstream stability purposes).
