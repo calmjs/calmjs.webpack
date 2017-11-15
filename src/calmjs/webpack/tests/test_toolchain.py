@@ -7,6 +7,7 @@ import os
 from os.path import exists
 from os.path import join
 
+from calmjs.loaderplugin import LoaderPluginRegistry
 from calmjs.parse.exceptions import ECMASyntaxError
 from calmjs.utils import pretty_logging
 from calmjs.toolchain import Spec
@@ -16,6 +17,7 @@ from calmjs.npm import get_npm_version
 
 from calmjs.webpack import toolchain
 from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
+from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
 
 from calmjs.testing import utils
 from calmjs.testing import mocks
@@ -38,6 +40,74 @@ def mock_text_loader(working_dir):
         }, fd)
 
     return module_src
+
+
+class CheckNameTestCase(unittest.TestCase):
+
+    def test_default(self):
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            self.assertTrue(toolchain.check_name_declared(
+                alias={'some/file.txt': 'some/file.txt'},
+                loaders={'text': 'text-loader/index.js'},
+                externals={},
+                loader_registry=AutogenWebpackLoaderPluginRegistry(
+                    'calmjs.webpack.loaderplugins'),
+                name='text!some/file.txt',
+            ))
+        self.assertIn(
+            "'text!some/file.txt' resolved to 'some/file.txt'",
+            s.getvalue())
+
+    def test_loader_not_declared(self):
+        # basically whatever reason it was NOT in the resolveLoaders
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            self.assertFalse(toolchain.check_name_declared(
+                alias={'some/file.txt': 'some/file.txt'},
+                loaders={},
+                externals={},
+                loader_registry=AutogenWebpackLoaderPluginRegistry(
+                    'calmjs.webpack.loaderplugins'),
+                name='text!some/file.txt',
+            ))
+        self.assertIn("loader 'text' not found in config", s.getvalue())
+
+    def test_loader_not_declared_in_externals(self):
+        # same case as above, but in externals
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            self.assertTrue(toolchain.check_name_declared(
+                alias={'some/file.txt': 'some/file.txt'},
+                loaders={},
+                externals={'text!some/file.txt'},
+                loader_registry=AutogenWebpackLoaderPluginRegistry(
+                    'calmjs.webpack.loaderplugins'),
+                name='text!some/file.txt',
+            ))
+        self.assertIn("loader 'text' not found in config", s.getvalue())
+
+    def test_missing_plugin(self):
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            self.assertFalse(toolchain.check_name_declared(
+                alias={'some/file.txt': 'some/file.txt'},
+                loaders={'text': 'text-loader/index.js'},
+                externals={},
+                loader_registry=LoaderPluginRegistry(
+                    'missing', _working_set=mocks.WorkingSet({})),
+                name='text!some/file.txt',
+            ))
+        self.assertIn(
+            "check_name_declared cannot resolve handler for "
+            "'text!some/file.txt'", s.getvalue())
+
+    def test_simply_externals(self):
+        # same case as above, but in externals
+        self.assertTrue(toolchain.check_name_declared(
+            alias={},
+            loaders={},
+            externals={'text!some/file.txt'},
+            loader_registry=LoaderPluginRegistry(
+                'missing', _working_set=mocks.WorkingSet({})),
+            name='text!some/file.txt',
+        ))
 
 
 class ToolchainBootstrapTestCase(unittest.TestCase):
@@ -822,9 +892,10 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertTrue(exists(config_js))
 
 
-class ToolchainCompilePluginTestCase(unittest.TestCase):
+class ToolchainCompileLoaderTestCase(unittest.TestCase):
     """
-    Test the compile_plugin method
+    Test the compile_loaderplugin method and other loader related
+    integration.
     """
 
     def setUp(self):
@@ -876,3 +947,109 @@ class ToolchainCompilePluginTestCase(unittest.TestCase):
         self.assertTrue(exists(join(self.build_dir, target2)))
         self.assertTrue(exists(join(self.build_dir, target3)))
         self.assertTrue(exists(join(self.build_dir, target4)))
+
+    def test_prepare_compile_assemble_verify_loaders_checked(self):
+        working_dir = utils.mkdtemp(self)
+        mock_text_loader(working_dir)
+        src_dir = utils.mkdtemp(self)
+
+        index_file = join(src_dir, 'index.js')
+        with open(index_file, 'w') as fd:
+            fd.write('var hello = require("text!hello/world.txt");\n')
+
+        text_file = join(src_dir, 'hello.txt')
+        with open(text_file, 'w') as fd:
+            fd.write('hello world')
+
+        webpack = toolchain.WebpackToolchain()
+        spec = Spec(**{
+            'build_dir': self.build_dir,
+            'export_target': join(working_dir, 'export.js'),
+            webpack.webpack_bin_key: join(self.build_dir, 'webpack'),
+            LOADERPLUGIN_SOURCEPATH_MAPS: {
+                'text': {
+                    'text!hello/world.txt': text_file,
+                }
+            },
+            'transpile_sourcepath': {
+                'index': index_file,
+            },
+            'working_dir': working_dir,
+            'verify_imports': True,
+        })
+
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            webpack.prepare(spec)
+            webpack.compile(spec)
+            webpack.assemble(spec)
+
+        self.assertTrue(exists(join(self.build_dir, 'hello', 'world.txt')))
+        self.assertNotIn(
+            "not in modules: ['text!hello/world.txt']", s.getvalue())
+
+    def test_prepare_compile_assemble_verify_loaders_not_found(self):
+        working_dir = utils.mkdtemp(self)
+        mock_text_loader(working_dir)
+        src_dir = utils.mkdtemp(self)
+
+        index_file = join(src_dir, 'index.js')
+        with open(index_file, 'w') as fd:
+            fd.write('var hello = require("text!hello/world.txt");\n')
+
+        webpack = toolchain.WebpackToolchain()
+        spec = Spec(**{
+            'build_dir': self.build_dir,
+            'export_target': join(working_dir, 'export.js'),
+            webpack.webpack_bin_key: join(self.build_dir, 'webpack'),
+            LOADERPLUGIN_SOURCEPATH_MAPS: {
+            },
+            'transpile_sourcepath': {
+                'index': index_file,
+            },
+            'working_dir': working_dir,
+            'verify_imports': True,
+        })
+
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            webpack.prepare(spec)
+            webpack.compile(spec)
+            webpack.assemble(spec)
+
+        self.assertIn("not in modules: ['text!hello/world.txt']", s.getvalue())
+
+    def test_prepare_compile_assemble_verify_loaders_external(self):
+        working_dir = utils.mkdtemp(self)
+        mock_text_loader(working_dir)
+        src_dir = utils.mkdtemp(self)
+
+        index_file = join(src_dir, 'index.js')
+        with open(index_file, 'w') as fd:
+            fd.write('var hello = require("text!hello/world.txt");\n')
+
+        webpack = toolchain.WebpackToolchain()
+        spec = Spec(**{
+            'build_dir': self.build_dir,
+            'export_target': join(working_dir, 'export.js'),
+            webpack.webpack_bin_key: join(self.build_dir, 'webpack'),
+            LOADERPLUGIN_SOURCEPATH_MAPS: {
+            },
+            'transpile_sourcepath': {
+                'index': index_file,
+            },
+            'working_dir': working_dir,
+            'verify_imports': True,
+            'webpack_externals': {
+                'text!hello/world.txt': {'amd': [
+                    '__calmjs__', 'modules', 'text!hello/world.txt']}
+            },
+            'calmjs_loaderplugin_registry': LoaderPluginRegistry(
+                'dummy', _working_set=mocks.WorkingSet({})),
+        })
+
+        with pretty_logging(stream=mocks.StringIO()) as s:
+            webpack.prepare(spec)
+            webpack.compile(spec)
+            webpack.assemble(spec)
+
+        self.assertNotIn(
+            "not in modules: ['text!hello/world.txt']", s.getvalue())

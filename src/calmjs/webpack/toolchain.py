@@ -6,6 +6,7 @@ Toolchain for using webpack with calmjs.
 from __future__ import unicode_literals
 
 import codecs
+from functools import partial
 import json
 import logging
 import sys
@@ -19,6 +20,7 @@ from subprocess import call
 
 from calmjs.toolchain import ES5Toolchain
 from calmjs.toolchain import ToolchainSpecCompileEntry
+from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
 from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
@@ -150,6 +152,43 @@ def get_webpack_runtime_name(platform):
     return _PLATFORM_SPECIFIC_RUNTIME.get(platform, _DEFAULT_RUNTIME)
 
 
+def check_name_declared(alias, loaders, externals, loader_registry, name):
+    """
+    Helper to check whether the name provided is in the preceding alias
+    and externals, along with the loader_registry to help resolve the
+    actual target.
+
+    The reason why the seemingly duplicate work is that the provided
+    alias or externals may not necessarily be produced from a spec or
+    used in conjunction with the toolchain.
+    """
+
+    def resolve_true_name(target):
+        if '!' in target:
+            handler = loader_registry.get(target)
+            if not handler:
+                logger.debug(
+                    "check_name_declared cannot resolve handler for '%s'",
+                    target
+                )
+                return target
+            if handler.name not in loaders:
+                logger.debug(
+                    "loader '%s' not found in config", handler.name)
+                return target
+            result = handler.unwrap(target)
+            return resolve_true_name(result)
+        return target
+
+    true_name = resolve_true_name(name)
+    logger.debug("'%s' resolved to '%s'", name, true_name)
+
+    return (
+        true_name in alias or
+        true_name in externals
+    )
+
+
 class WebpackToolchain(ES5Toolchain):
     """
     The toolchain that make use of webpack to generate an artifact.
@@ -177,9 +216,6 @@ class WebpackToolchain(ES5Toolchain):
         )
 
     def transpile_modname_source_target(self, spec, modname, source, target):
-        # TODO check that source is actually a *.js file.
-        # should appropriately warn about things in loader plugins
-        # XXX seriously, implement loader plugins
         return super(WebpackToolchain, self).transpile_modname_source_target(
             spec, modname, source, target)
 
@@ -276,7 +312,7 @@ class WebpackToolchain(ES5Toolchain):
                 spec['webpack_config_js'], 'w', encoding='utf8') as fd:
             fd.write(_WEBPACK_CONFIG_TEMPLATE % (config_dump, plugins_dump))
 
-    def check_alias_declared(self, alias, externals):
+    def check_all_alias_declared(self, alias, name_checker):
         missing = set()
         for modname, path in alias.items():
             # look into how to throw in a preprocess hook to the
@@ -291,10 +327,9 @@ class WebpackToolchain(ES5Toolchain):
             with codecs.open(path, 'r', encoding='utf8') as fd:
                 tree = io.read(parse, fd)
 
-            # XXX the alias will need to be resolved separately...
             new_missing = [
                 name for name in yield_module_imports(tree)
-                if not (name in alias or name in externals)
+                if not name_checker(name)
             ]
             if new_missing:
                 logger.info(
@@ -350,8 +385,9 @@ class WebpackToolchain(ES5Toolchain):
         # be explicit as there are cases where an alternative bundle may
         # be specified using optional advices.
         main_prefixes = ('transpiled', 'bundled',)
+        source_alias = {}
         for prefix in main_prefixes:
-            alias.update(generate_alias(prefix))
+            source_alias.update(generate_alias(prefix))
 
         # Do the same for loaders, but keep it in a separate mapping for
         # now.
@@ -380,6 +416,8 @@ class WebpackToolchain(ES5Toolchain):
                     DEFAULT_BOOTSTRAP_EXPORT
                 )
                 # assign the internal loader to the alias
+                # TODO check that the defaut loader not being passed
+                # through check_all_alias_declared is not an issue.
                 alias[DEFAULT_CALMJS_EXPORT_NAME] = self.write_lookup_module(
                     spec, _DEFAULT_LOADER_FILENAME,
                     *_WEBPACK_CALMJS_MODULE_LOADER_TEMPLATE
@@ -437,11 +475,22 @@ class WebpackToolchain(ES5Toolchain):
             # need to manually resolve the entry
             # if externals has been defined, use the complete lookup module
             # otherwise, use the simplified version.
-            webpack_config['entry'] = alias[spec[WEBPACK_ENTRY_POINT]]
+            webpack_config['entry'] = source_alias[spec[WEBPACK_ENTRY_POINT]]
+
+        # merge all aliases for writing of configuration file
+        alias.update(source_alias)
+        alias.update(other_alias)
+        # record the webpack config to the spec
+        spec[WEBPACK_CONFIG] = webpack_config
 
         if spec.get(VERIFY_IMPORTS, True):
-            missing = self.check_alias_declared(
-                alias, webpack_config['externals'])
+            missing = self.check_all_alias_declared(source_alias, partial(
+                check_name_declared,
+                webpack_config['resolve']['alias'],
+                webpack_config['resolveLoader']['alias'],
+                webpack_config['externals'],
+                spec.get(CALMJS_LOADERPLUGIN_REGISTRY),
+            ))
             if missing:
                 logger.warning(
                     "source file(s) referenced modules that are not in alias "
@@ -449,11 +498,8 @@ class WebpackToolchain(ES5Toolchain):
                     ', '.join(sorted(repr(m) for m in missing))
                 )
 
-        # bring in the other unchecked alias (i.e. from loaderplugins)
-        alias.update(other_alias)
+        # write the configuration file, after everything is checked.
         self.write_webpack_config(spec, webpack_config)
-        # record the webpack config to the spec
-        spec[WEBPACK_CONFIG] = webpack_config
 
     def link(self, spec):
         """
