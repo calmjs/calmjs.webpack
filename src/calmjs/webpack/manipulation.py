@@ -3,6 +3,8 @@
 A collection of helpers for manipulating ES5 sources.
 """
 
+from __future__ import unicode_literals
+
 from calmjs.parse.asttypes import Array
 from calmjs.parse.asttypes import DotAccessor
 from calmjs.parse.asttypes import FunctionCall

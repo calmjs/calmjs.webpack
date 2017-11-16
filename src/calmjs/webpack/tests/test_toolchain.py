@@ -985,7 +985,7 @@ class ToolchainCompileLoaderTestCase(unittest.TestCase):
 
         self.assertTrue(exists(join(self.build_dir, 'hello', 'world.txt')))
         self.assertNotIn(
-            "not in modules: ['text!hello/world.txt']", s.getvalue())
+            "not in modules: %s" % (['text!hello/world.txt'],), s.getvalue())
 
     def test_prepare_compile_assemble_verify_loaders_not_found(self):
         working_dir = utils.mkdtemp(self)
@@ -1015,7 +1015,8 @@ class ToolchainCompileLoaderTestCase(unittest.TestCase):
             webpack.compile(spec)
             webpack.assemble(spec)
 
-        self.assertIn("not in modules: ['text!hello/world.txt']", s.getvalue())
+        self.assertIn(
+            "not in modules: %s" % (['text!hello/world.txt'],), s.getvalue())
 
     def test_prepare_compile_assemble_verify_loaders_external(self):
         working_dir = utils.mkdtemp(self)
@@ -1052,4 +1053,4 @@ class ToolchainCompileLoaderTestCase(unittest.TestCase):
             webpack.assemble(spec)
 
         self.assertNotIn(
-            "not in modules: ['text!hello/world.txt']", s.getvalue())
+            "not in modules: %s" % (['text!hello/world.txt'],), s.getvalue())

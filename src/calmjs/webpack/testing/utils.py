@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import codecs
 import os
 import json
 from os import makedirs
@@ -327,7 +328,7 @@ def generate_example_bundles(cls):
 
     contents = {}
     for key, path in names.items():
-        with open(path) as fd:
+        with codecs.open(path, encoding='utf8') as fd:
             contents[key] = fd.read()
 
     return keys, names, prebuilts, contents

@@ -3,6 +3,9 @@
 Integration with various tools proided by the calmjs.dev package
 """
 
+from __future__ import unicode_literals
+
+import codecs
 import json
 import logging
 from os.path import basename
@@ -47,7 +50,7 @@ def _generate_combined_test_module(spec):
 
     # TEST_MODULE_PATHS_MAP
     test_file = join(spec[BUILD_DIR], '__calmjs_tests__.js')
-    with open(test_file, 'w') as fd:
+    with codecs.open(test_file, 'w', encoding='utf8') as fd:
         fd.writelines(
             "require(%s);\n" % json.dumps(m)
             for m, path in spec[TEST_MODULE_PATHS_MAP].items() if (
@@ -158,7 +161,7 @@ def karma_webpack(spec):
         externals = {}
         for p in spec.get(ARTIFACT_PATHS, ()):
             logger.debug('processing artifact file %r', p)
-            with open(p) as fd:
+            with codecs.open(p, encoding='utf8') as fd:
                 try:
                     for module_name in probe_calmjs_webpack_module_names(
                             parse(fd.read())):

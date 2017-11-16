@@ -86,11 +86,11 @@ return /******/ (function(modules) { // webpackBootstrap
 var calmjs_bootstrap = __webpack_require__(1) || {};
 var externals = calmjs_bootstrap.modules || {};
 exports.modules = {
-    "example/package/math": __webpack_require__(3),
     "example/package/bad": __webpack_require__(2),
-    "example/package/main": __webpack_require__(8),
     "example/package/bare": __webpack_require__(6),
     "example/package/dynamic": __webpack_require__(7),
+    "example/package/main": __webpack_require__(8),
+    "example/package/math": __webpack_require__(3),
     "mockquery": __webpack_require__(4)
 };
 

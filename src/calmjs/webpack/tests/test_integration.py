@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import unittest
+import codecs
 import json
 import os
 import sys
@@ -52,7 +53,7 @@ def run_webpack(script, *artifacts):
     stream = StringIO()
     stream.write("var window = new (function(require, exports, module) {\n")
     for artifact in artifacts:
-        with open(artifact) as fd:
+        with codecs.open(artifact, encoding='utf8') as fd:
             stream.write(fd.read())
     stream.write("})();\n")
     stream.write(dedent(script))
@@ -444,7 +445,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # tree level.
         rv = ReprWalker()
         for key in keys:
-            with open(prebuilts[key]) as fd:
+            with codecs.open(prebuilts[key], encoding='utf8') as fd:
                 prebuilt = rv.walk(parse(fd.read()))
                 generated = rv.walk(parse(contents[key]))
                 self.assertEqual(prebuilt, generated)
@@ -626,7 +627,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         service_js = join(working_dir, 'service.js')
         self.assertEqual(spec['export_target'], service_js)
 
-        with open(service_js) as fd:
+        with codecs.open(service_js, encoding='utf8') as fd:
             service_artifact = fd.read()
 
         self.assertIn('service/rpc/lib', service_artifact)
@@ -703,7 +704,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             # declared in framework
             'framework/lib', 'jquery', 'underscore',
             # declared in widget
-            'widget/core', 'widget/richedit', 'widget/datepicker',
+            'widget/core', 'widget/datepicker', 'widget/richedit',
         ]))
 
         # now load the rest, and see that the underscore module be
@@ -719,7 +720,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             # declared in framework
             'framework/lib', 'jquery', 'underscore',
             # declared in widget
-            'widget/core', 'widget/richedit', 'widget/datepicker',
+            'widget/core', 'widget/datepicker', 'widget/richedit',
             # declared in forms
             'forms/ui',
             # declared in service
@@ -911,7 +912,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             ])
         self.assertEqual(e.exception.args[0], 0)
 
-        with open(target_file) as fd:
+        with codecs.open(target_file, encoding='utf8') as fd:
             contents = fd.read()
 
         # since the package has no sources along with bundling disabled,
@@ -939,7 +940,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             ])
         self.assertEqual(e.exception.args[0], 0)
 
-        with open(target_file) as fd:
+        with codecs.open(target_file, encoding='utf8') as fd:
             contents = fd.read()
 
         # as the registry is NOT declared for that package, it should
@@ -1074,7 +1075,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
 
-        with open(export_target) as fd:
+        with codecs.open(export_target, encoding='utf8') as fd:
             self.assertIn('webpackUniversalModuleDefinition', fd.read())
 
         # ensure that it runs, too.
@@ -1097,7 +1098,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             ])
         self.assertEqual(e.exception.args[0], 0)
 
-        with open(export_target) as fd:
+        with codecs.open(export_target, encoding='utf8') as fd:
             self.assertNotIn('webpackUniversalModuleDefinition', fd.read())
 
         # ensure that it runs, too.
@@ -1111,7 +1112,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
     def test_runtime_example_package_bad_import(self):
         fault_js = join(self._ep_root, 'fault.js')
-        with open(fault_js, 'w') as fd:
+        with codecs.open(fault_js, 'w', encoding='utf8') as fd:
             fd.write(
                 '"use strict";\n'
                 'require("no_such_module");\n'
@@ -1139,7 +1140,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
     def test_runtime_example_package_bad_import_skip_check(self):
         fault_js = join(self._ep_root, 'fault.js')
-        with open(fault_js, 'w') as fd:
+        with codecs.open(fault_js, 'w', encoding='utf8') as fd:
             fd.write(
                 '"use strict";\n'
                 'require("no_such_module");\n'

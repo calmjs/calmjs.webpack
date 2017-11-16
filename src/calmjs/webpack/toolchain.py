@@ -30,6 +30,7 @@ from calmjs.interrogate import yield_module_imports
 
 from calmjs.parse.parsers.es5 import parse
 from calmjs.parse import io
+from calmjs.parse.utils import repr_compat
 
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
@@ -282,7 +283,7 @@ class WebpackToolchain(ES5Toolchain):
             requireline % {
                 'module': json.dumps(m)
             }
-            for m in spec[EXPORT_MODULE_NAMES]
+            for m in sorted(spec[EXPORT_MODULE_NAMES])
         ]
 
         export_module_path = join(spec[BUILD_DIR], target)
@@ -495,7 +496,7 @@ class WebpackToolchain(ES5Toolchain):
                 logger.warning(
                     "source file(s) referenced modules that are not in alias "
                     "or externals: %s",
-                    ', '.join(sorted(repr(m) for m in missing))
+                    ', '.join(sorted(repr_compat(m) for m in missing))
                 )
 
         # write the configuration file, after everything is checked.

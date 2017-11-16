@@ -118,9 +118,9 @@ exports.mul = function(x, y) {
 var calmjs_bootstrap = __webpack_require__(0) || {};
 var externals = calmjs_bootstrap.modules || {};
 exports.modules = {
-    "example/package/math": __webpack_require__(2),
     "example/package/bad": __webpack_require__(1),
-    "example/package/main": __webpack_require__(5)
+    "example/package/main": __webpack_require__(5),
+    "example/package/math": __webpack_require__(2)
 };
 
 exports.require = function(modules, f) {
