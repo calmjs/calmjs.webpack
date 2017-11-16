@@ -2,12 +2,11 @@ calmjs.webpack
 ==============
 
 Package for extending the the `Calmjs framework`_ to support the usage
-of `webpack`__ for the generation of deployable artifacts from
+of |webpack|_ for the generation of deployable artifacts from
 JavaScript source code provided by Python packages in conjunction with
-standard JavaScript or `Node.js`_ packages sourced from |npm|_ or other
+standard JavaScript or `Node.js`_
 similar package repositories.
 
-.. __: https://webpack.js.org/
 .. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=master
     :target: https://travis-ci.org/calmjs/calmjs.webpack
 .. image:: https://ci.appveyor.com/api/projects/status/327fghy5uhnhplf5/branch/master?svg=true
@@ -15,9 +14,13 @@ similar package repositories.
 .. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=master
     :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=master
 
+.. |calmjs| replace:: ``calmjs``
+.. |calmjs.dev| replace:: ``calmjs.dev``
+.. |calmjs.webpack| replace:: ``calmjs.webpack``
 .. |npm| replace:: ``npm``
 .. |webpack| replace:: ``webpack``
 .. _Calmjs framework: https://pypi.python.org/pypi/calmjs
+.. _calmjs: https://pypi.python.org/pypi/calmjs
 .. _Node.js: https://nodejs.org/
 .. _npm: https://www.npmjs.com/
 .. _webpack: https://webpack.js.org/
@@ -33,27 +36,30 @@ management systems such as |npm|_.  However, backend languages that
 offer their own package management system typically lack comprehensive
 integration with |npm| by default.
 
-The outcome is that a project is typically forcibly split into two
-completely separate projects, or a single project has two separate
-deployment systems that do not necessarily talk to each other.  This
-results in issues including, but not limited to, end-users having
-difficulties reproducing the build, or that the deployment process of
-the deployable client-side artifacts being tightly coupled to the
-underlying source repository for the package.  Ultimately, this leaves
-the users of the backend language not having a way to convey these
-information across package boundaries for reuse by other downstream
-packages, for instance, to provide methodologies for development of
-extensions and plugins.
+A common way to address this issue is that a package may be forced to be
+split into two, or at the very least a completely separate deployment
+system is used, in order for the JavaScript tools to manage the front-
+end facing parts.  On top of this, these separate systems do not
+necessarily communicate with each other.  This results in issues such as
+difficulties in building the software stack, deployments being flaky and
+non-reproducible outside of the project's context, limiting reusability
+of all the components at hand as the entire process is typically tightly
+coupled to the underlying source repository.  Ultimately, this leaves
+the users of the backend language not able to convey front end
+deployment information across package boundaries for reuse by their
+dependents (e.g. for other downstream packages to extend the package in
+ways that promote reusability in a way that is well-tested.)
 
-This kind of self-contained behavior also plagues |webpack|_, where
-each `Node.js`_ package provide the resulting artifact, but not
-necessarily the methods that went into generating them.  Sure, most
-typical use case can be addressed by simply specifying the entry point,
-however for systems that offer unspecified plugin-based systems this
-quickly becomes problematic, since webpack requires all imports be
-known at build time.  This makes arbitrary extensions very difficult
-to implement without a separate system that acts as an overseer for
-what modules names are available and where they might be.
+This kind of self-contained behavior also plagues |webpack|_, where each
+`Node.js`_ package provide the resulting artifact, but not necessarily
+the methods that went into generating them in a form that is reusable.
+Sure, most typical use case for those packages can be addressed by
+simply specifying the entry point, however for systems that offer
+dynamic plugin-based systems this quickly becomes problematic, as
+webpack requires that all imports be known at build time.  This makes
+arbitrary extensions very difficult to implement without a separate
+system that acts as an overseer for what modules names are available and
+where they might be.
 
 As the goal of the `Calmjs framework`_ is to allow Python packages to
 expose their JavaScript code as if they are part of the |npm| managed
@@ -74,32 +80,35 @@ How |calmjs.webpack| works
 
 The Calmjs framework provides the framework to allow Python packages to
 declare the dependencies they need against |npm| based packages for the
-JavaScript code they provide, and also the system that allow Python
-packages to declare which of their modules export JavaScript sources
-that can be reused.
+JavaScript code they provide, and also enable Python packages to expose
+any JavaScript source files that they may contain in a declarative
+manner.
 
 The utility included with |calmjs.webpack| provide the means to consume
 those declarations, treating the JavaScript files as both source and
 compilation target, with the final deployable artifact(s) being produced
 through |webpack| from the |webpack|_ package.
 
-Currently, the source files could be written in any format as understood
-by webpack, though currently only standard ES5 is understood.  For
-dynamic imports to work, both the AMD and CommonJS import invocation
-methods (i.e. via ``require``) are understood and this will be
-transpiled into the common Calmjs helper module that will be injected
-into the affected webpack artifacts.  (XXX to be implemented)
+While the input source files made available through Python packages
+could be written in any format as understood by webpack,
+currently only standard ES5 is understood.  The reason for this is that
+|calmjs.parse|_, the parser library that |calmjs.webpack| make use for
+the parsing of JavaScript, currently only understand ES5, and is used
+for extracting all the import statements to create the dynamic Calmjs
+import system for webpack, and to also transpile the CommonJS and AMD
+require statements to make use of this dynamic import system.
 
 The resulting sources will be placed in a build directory, along with
 all the declared bundled sources acquired from the Node.js package
-managers or repositories, plus the (optionally) generated module.  A
-webpack configuration file will then be generated that will include all
-the relevant sources as selected to enable the generation of
-the final artifact file through |wepack|.  These can then be deployed to
-the appropriate environment, or the whole above process can be included
-as part of the functionality of the Python backend at hand.
+managers or repositories, plus the (optionally) generated import module.
+A webpack configuration file will then be generated to include all the
+relevant sources as selected to enable the generation of the final
+artifact file.  These can then be deployed to the appropriate
+environment, or the whole above process can be included as part of the
+functionality of the Python backend at hand through the API provided
+through this package.
 
-Ultimately, the goal of |webpack| is to ease the integration and
+Ultimately, the goal of |calmjs.webpack| is to ease the integration and
 interactions between of client-side JavaScript with server-side Python,
 by simplifying the task of building, shipping and deployment of the two
 set of sources in one shared package and environment.  The Calmjs
@@ -113,7 +122,7 @@ environment and harnesses for running of JavaScript tests that are part
 of the Python packages for the associated JavaScript code.  However,
 that package is not declared as a direct dependency, as not all use
 cases will require the availability of that package.  Please refer to
-installation section for details.  (XXX to be completed)
+installation section for details.
 
 
 Installation
@@ -144,21 +153,24 @@ desired, it can be done through |calmjs| with the following command:
 Which does the equivalent of ``npm install webpack``; while this does
 not seem immediately advantageous, other Python packages that declared
 their dependencies for specific sets of tool can be invoked like so, and
-to follow through on that.  As an example, ``example.package`` may
-declare dependencies on RequireJS through |npm| plus a number of other
-packages available through |webpack|, the process then simply become
-this:
+to follow through on that.  As an example, a given package (say
+``demo.package``) may declare dependencies on |webpack| along with a
+number of other packages that they require through |npm|, the process
+then simply become this:
 
 .. code:: sh
 
-    $ calmjs npm --install example.package
+    $ calmjs npm --install demo.package
 
-All standard JavaScript and Node.js dependencies for ``example.package``
+All standard JavaScript and Node.js dependencies for ``demo.package``
 will now be installed into the current directory through the relevant
 tools.  This process will also install all the other dependencies
 through |npm| or |webpack| that other Python packages depended on by
-``example.package`` have declared.  For more usage please refer to
-further down this document or the documentation for |calmjs|_.
+``demo.package`` have declared.  Most importantly, dependents of
+``demo.package`` will also gain those requirements available via |npm|.
+
+For more usage please continue reading through this document or consult
+the documentation for |calmjs|_.
 
 Alternative installation methods (advanced users)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -187,9 +199,9 @@ As |calmjs| is declared as both a namespace and a package, mixing
 installation methods as described above when installing with other
 |calmjs| packages may result in the module importer being unable to look
 up the target module.  While this normally will not affect end users,
-provided they use the same, standard installation method (i.e. wheel),
-for developers it can be troublesome.  To resolve this, either stick to
-the same installation method for all packages (i.e. ``python setup.py
+as typically only the standard installation method (i.e. wheel) will be
+used, for developers it can be troublesome.  To resolve this, reinstall
+all packages using the same installation method (i.e. ``python setup.py
 develop``), or import a module from the main |calmjs| package.  Here
 is an example run:
 
@@ -240,15 +252,37 @@ declaration like so (XXX only when released):
 Usage
 -----
 
-XXX none of these is currently implemented
+To generate a webpack artifact from packages that have JavaScript code
+exposed through the Calmjs module registry system that are already
+installed into the current environment, simply execute the following
+command:
 
-Any exposed JavaScript code through the ``calmjs.module`` registry will
-be picked up and compiled into a working RequireJS artifact.  For
-details on how the calmjs registry system works please refer to the
-README included with the |calmjs|_ project.
+.. code:: sh
 
-For example, given the following entry points for that registry defined
-by a package named ``example``:
+    $ calmjs webpack some.package
+
+For further information about the inner workings of the registry system,
+please refer to the README provided by the |calmjs|_ package, under the
+section "Export JavaScript code from Python packages"
+
+Declaring JavaScript exports for Python
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+JavaScript code embedded within a Python package can be exposed to the
+Calmjs framework through the ``calmjs.module`` registry.  For example,
+given the the following entry points for that registry defined by a
+package named ``example``:
+
+.. code:: ini
+
+    [calmjs.module]
+    example = example
+
+This is the most basic declaration that works for packages that share
+the same name as the import location provided.
+
+The following is am example for packages that have nested submodules
+(called ``example.lib`` and ``example.app``):
 
 .. code:: ini
 
@@ -258,29 +292,65 @@ by a package named ``example``:
 
 While the import locations declared looks exactly like a Python module
 (as per the rules of a Python entry point), the ``calmjs.module``
-registry will present them using the es6 style import paths (i.e.
+registry will present them using the CommonJS style import paths (i.e.
 ``'example/lib'`` and ``'example/app'``), so users of that need those
-JavaScript modules to be sure they ``require`` those strings.  Also,
-the default extractor will extract all source files within those
-directories.  Also, as a consequence of how the imports are done, it is
-recommended that no relative imports be used.
+JavaScript modules to be sure they ``require`` those strings.
 
-To extract all JavaScript modules declared within Python packages
-through this registry can be done like so through the ``calmjs webpack``
-build tool, which would extract all the relevant sources, create a
-temporary build directory, generate the build manifest and invoke
-``webpack`` on that file.  An example run:
+Please also note that the default source extractor will extract all
+JavaScript files within those directories.  Finally, as a consequence of
+how the imports are done, it is recommended that no relative imports are
+to be used.
+
+If the package at hand does not directly declare its dependency on
+|calmjs|, an explicit ``calmjs_module_registry=['calmjs.module']`` may
+need to be declared in the ``setup`` function for the package to ensure
+that this source registry will be used to acquire the source from.
+
+Putting this together, the ``setup.py`` file should contain the
+following:
+
+.. code:: Python
+
+    setup(
+        name='example',
+        # ... plus other declarations
+        # this is recommended
+        install_requires=[
+            'calmjs>=3.0.0',
+        ],
+        # if the above is omitted, ensure this is included
+        calmjs_module_registry=['calmjs.module'],
+    )
+
+For the construction of the webpack artifact for the example package, it
+may be done like so through the ``calmjs webpack`` build tool, which
+would extract all the relevant sources, create a temporary build
+directory, generate the build manifest and invoke ``webpack`` on that
+file.  An example run:
 
 .. code:: sh
 
-    $ calmjs webpack example
+    $ calmjs webpack example 
+    Hash: 1dbcdb61e3afb4d2a383
+    Version: webpack 2.6.1
+    Time: 82ms
+         Asset     Size  Chunks             Chunk Names
+    example.js  4.49 kB       0  [emitted]  main
+       [1] /tmp/tmp7qvdjb5z/build/example/lib/core.js 51 bytes {0} [built]
+           cjs require example/lib/core [2] /tmp/tmp7qvdjb5z/build/__calmjs_loader__.js 6:24-51
+           cjs require example/lib/core [4] /tmp/tmp7qvdjb5z/build/example/app/index.js 1:10-37
+       [2] /tmp/tmp7qvdjb5z/build/__calmjs_loader__.js 559 bytes {0} [built]
+           cjs require __calmjs_loader__ [3] /tmp/tmp7qvdjb5z/build/__calmjs_bootstrap__.js 3:20-48
+       [3] /tmp/tmp7qvdjb5z/build/__calmjs_bootstrap__.js 341 bytes {0} [built]
+       [4] /tmp/tmp7qvdjb5z/build/example/app/index.js 74 bytes {0} [built]
+           cjs require example/app/index [2] /tmp/tmp7qvdjb5z/build/__calmjs_loader__.js 7:25-53
+        + 1 hidden modules
 
-XXX 
-
-As the build process used by |calmjs.webpack| is done in a separate
+As the build process used by |calmjs.webpack| is executed in a separate
 build directory, all imports through the Node.js module system must be
-declared as ``extras_calmjs``.  For instance, if ``example/app/index``
-need to use the ``jquery`` and ``underscore`` modules like so:
+declared as ``extras_calmjs``, as the availability of ``node_modules``.
+will not be present.  For instance, if ``example/app/index.js`` require
+the usage of the ``jquery`` and ``underscore`` modules like so:
 
 .. code:: JavaScript
 
@@ -311,16 +381,37 @@ package_json for the dependencies, it will need to declare this in its
 
 Once that is done, rerun ``python setup.py egg_info`` to write the
 freshly declared metadata into the package's egg-info directory, so that
-it can be used from within the environment.  ``calmjs npm --install``
-can now be invoked to install the |npm| dependencies into the current
-directory; to permit |calmjs.webpack| to find the required files sourced
-from |npm| to put into the build directory for ``r.js`` to locate them.
+it can be used from within the environment.  ``calmjs npm --install
+example`` can now be invoked to install the |npm| dependencies into the
+current directory; to permit |calmjs.webpack| to find the required files
+sourced from |npm| to put into the build directory for ``webpack`` to
+locate them.
 
 The resulting calmjs run may then end up looking something like this:
 
 .. code:: sh
 
     $ calmjs webpack example
+    Hash: fa76455e8abdb96273aa
+    Version: webpack 2.6.1
+    Time: 332ms
+         Asset    Size  Chunks                    Chunk Names
+    example.js  326 kB       0  [emitted]  [big]  main
+       [1] /tmp/tmposbsof05/build/example/lib/core.js 51 bytes {0} [built]
+           cjs require example/lib/core [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 7:24-51
+           cjs require example/lib/core [6] /tmp/tmposbsof05/build/example/app/index.js 1:10-37
+       [2] /tmp/tmposbsof05/build/jquery.js 268 kB {0} [built]
+           cjs require jquery [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 8:14-31
+           cjs require jquery [6] /tmp/tmposbsof05/build/example/app/index.js 2:8-25
+       [3] /tmp/tmposbsof05/build/underscore.js 52.9 kB {0} [built]
+           cjs require underscore [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 9:18-39
+           cjs require underscore [6] /tmp/tmposbsof05/build/example/app/index.js 2:31-52
+       [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 633 bytes {0} [built]
+           cjs require __calmjs_loader__ [5] /tmp/tmposbsof05/build/__calmjs_bootstrap__.js 3:20-48
+       [5] /tmp/tmposbsof05/build/__calmjs_bootstrap__.js 341 bytes {0} [built]
+       [6] /tmp/tmposbsof05/build/example/app/index.js 128 bytes {0} [built]
+           cjs require example/app/index [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 6:25-53
+        + 1 hidden modules
 
 Handling of Webpack loaders
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -335,8 +426,17 @@ specific loader require special handling), it is also possible to
 register the specific handler to override the generic handler for that
 specific loader.
 
-Do note that the package referenced by the handler that provides the
-actual webpack loader must be available, otherwise the build will fail.
+So if some JavaScript code contain a require statement like:
+
+.. code:: JavaScript
+
+    var readme = require('text!readme.txt');
+
+And there exists a custom Calmjs module registry that provide those
+sources, the default loaderplugin handler registry will provide a
+standard handler that will process this, provided the loader package is
+available along with webpack on the working Node.js environment.
+
 
 Troubleshooting
 ---------------
