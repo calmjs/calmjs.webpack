@@ -133,7 +133,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
     def test_prepare_failure_manual(self):
         webpack = toolchain.WebpackToolchain()
-        spec = Spec(webpack_bin='/no/such/path')
+        spec = Spec(toolchain_bin_path='/no/such/path')
         with self.assertRaises(RuntimeError) as e:
             webpack.prepare(spec)
 

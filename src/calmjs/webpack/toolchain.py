@@ -25,6 +25,7 @@ from calmjs.toolchain import CONFIG_JS_FILES
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import EXPORT_MODULE_NAMES
 from calmjs.toolchain import BUILD_DIR
+from calmjs.toolchain import TOOLCHAIN_BIN_PATH
 from calmjs.toolchain import toolchain_spec_prepare_loaderplugins
 from calmjs.interrogate import yield_module_imports
 
@@ -195,7 +196,7 @@ class WebpackToolchain(ES5Toolchain):
     The toolchain that make use of webpack to generate an artifact.
     """
 
-    webpack_bin_key = 'webpack_bin'
+    webpack_bin_key = TOOLCHAIN_BIN_PATH
     webpack_bin = get_webpack_runtime_name(sys.platform)
     webpack_config_name = 'config.js'
     loaderplugin_registry = CALMJS_WEBPACK_LOADERPLUGINS
