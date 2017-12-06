@@ -1240,6 +1240,32 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
 
+    def test_karma_test_runner_coverage(self):
+        # utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', '--coverage',
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+    def test_karma_test_runner_coverage_covertests(self):
+        # utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', '--coverage', '--cover-test',
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
     def test_karma_test_runner_standalone_artifact(self):
         """
         what's the purpose of tests if they can't be executed any time,

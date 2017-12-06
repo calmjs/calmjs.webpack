@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover
 from calmjs.exc import ToolchainAbort
 from calmjs.toolchain import Spec
 from calmjs.utils import pretty_logging
+from calmjs.webpack import dev
 from calmjs.webpack.dev import karma_webpack
 
 from calmjs.testing.mocks import StringIO
@@ -56,6 +57,97 @@ class KarmaAbsentTestCase(unittest.TestCase):
 
 @unittest.skipIf(karma is None, 'calmjs.dev or its karma module not available')
 class KarmaTestcase(unittest.TestCase):
+
+    def test_coverage_generation_empty(self):
+        self.assertIsNone(dev._generate_coverage_loader(Spec()))
+
+    def test_coverage_generation_targets(self):
+        spec = Spec(test_covered_test_paths=[
+            'some/test/file',
+            'some/other/file',
+        ])
+        loader = dev._generate_coverage_loader(spec)
+        self.assertEqual({
+            "loader": "sourcemap-istanbul-instrumenter-loader",
+            "include": ['some/test/file', 'some/other/file'],
+        }, loader)
+
+    def test_coverage_generation_build_dir(self):
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            test_covered_build_dir_paths=['afile.js'],
+        )
+        loader = dev._generate_coverage_loader(spec)
+        self.assertTrue(loader['include'][0].startswith(spec['build_dir']))
+        self.assertTrue(loader['include'][0].endswith('afile.js'))
+
+    def test_coverage_generation_all(self):
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            test_covered_build_dir_paths=['afile.js'],
+            test_covered_test_paths=['some/test/file'],
+        )
+        loader = dev._generate_coverage_loader(spec)
+        self.assertEqual({
+            "loader": "sourcemap-istanbul-instrumenter-loader",
+            "include": ['some/test/file', join(spec['build_dir'], 'afile.js')],
+        }, loader)
+
+    def test_apply_coverage_required_missing(self):
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            test_covered_build_dir_paths=['afile.js'],
+            test_covered_test_paths=['some/test/file'],
+        )
+        with self.assertRaises(KeyError):
+            dev._apply_coverage(spec)
+
+    def test_apply_coverage_standard(self):
+        spec = Spec(
+            karma_config={
+                'webpack': {},
+            },
+            build_dir=mkdtemp(self),
+            test_covered_build_dir_paths=['afile.js'],
+            test_covered_test_paths=['some/test/file'],
+        )
+        dev._apply_coverage(spec)
+
+        self.assertEqual({
+            "module": {"loaders": [{
+                "loader": "sourcemap-istanbul-instrumenter-loader",
+                "include": [
+                    'some/test/file', join(spec['build_dir'], 'afile.js')
+                ],
+            }]},
+        }, spec['karma_config']['webpack'])
+
+    def test_apply_coverage_join(self):
+        spec = Spec(
+            karma_config={
+                'webpack': {
+                    'module': {
+                        'rules': [],
+                        'loaders': [
+                            {'loader': 'demo-loader'}
+                        ],
+                    },
+                },
+            },
+            build_dir=mkdtemp(self),
+            test_covered_build_dir_paths=['afile.js'],
+            test_covered_test_paths=['some/test/file'],
+        )
+        dev._apply_coverage(spec)
+
+        self.assertEqual({
+            "module": {'rules': [], "loaders": [{'loader': 'demo-loader'}, {
+                "loader": "sourcemap-istanbul-instrumenter-loader",
+                "include": [
+                    'some/test/file', join(spec['build_dir'], 'afile.js')
+                ],
+            }]},
+        }, spec['karma_config']['webpack'])
 
     def test_karma_setup_empty(self):
         spec = Spec()

@@ -21,6 +21,8 @@ try:
     from calmjs.dev.karma import BEFORE_KARMA
     from calmjs.dev.toolchain import TEST_FILENAME_PREFIX
     from calmjs.dev.toolchain import TEST_FILENAME_PREFIX_DEFAULT
+    from calmjs.dev.toolchain import TEST_COVERED_TEST_PATHS
+    from calmjs.dev.toolchain import TEST_COVERED_BUILD_DIR_PATHS
 except ImportError:  # pragma: no cover
     # Package not available; None is the advice blackhole
     BEFORE_KARMA = None
@@ -30,6 +32,7 @@ from calmjs.parse.parsers.es5 import parse
 
 from calmjs.webpack.base import WEBPACK_CONFIG
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
+from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 
 logger = logging.getLogger(__name__)
@@ -100,6 +103,38 @@ def _process_tests(spec):
         #     deps.append(k)
 
     return test_files
+
+
+def _generate_coverage_loader(spec):
+    # apply the loader to all paths to be covered that require the
+    # webpack specific loader, as the originals will _not_ be used.
+    include = []
+    loader = {
+        "loader": "sourcemap-istanbul-instrumenter-loader",
+        "include": include,
+    }
+
+    for covered_path in spec.get(TEST_COVERED_TEST_PATHS, []):
+        # these should already be absolutes, apply directly.
+        include.append(covered_path)
+
+    for covered_path in spec.get(TEST_COVERED_BUILD_DIR_PATHS, []):
+        # these will need to be joined with build_dir, as they are
+        # relative.
+        include.append(join(spec[BUILD_DIR], covered_path))
+
+    if include:
+        return loader
+
+
+def _apply_coverage(spec):
+    loader = _generate_coverage_loader(spec)
+    if not loader:
+        return
+    config = spec[karma.KARMA_CONFIG]
+    module = config['webpack']['module'] = config['webpack'].get('module', {})
+    loaders = module['loaders'] = module.get('loaders', [])
+    loaders.append(loader)
 
 
 def karma_webpack(spec):
@@ -192,6 +227,7 @@ def karma_webpack(spec):
         }
 
     test_files = _process_tests(spec)
+    _apply_coverage(spec)
 
     # purge all files
     files = config['files'] = []

@@ -21,6 +21,7 @@ package_json = {
     "devDependencies": {
         "webpack": "~2.6.0",
         "karma-webpack": "~2.0.0",
+        "sourcemap-istanbul-instrumenter-loader": "~0.2.0",
     }
 }
 
