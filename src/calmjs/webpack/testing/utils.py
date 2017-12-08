@@ -190,12 +190,48 @@ def cls_setup_webpack_example_package(cls):
             '[%s]\n'
             'example.package = example.package\n'
             '[%s.tests]\n'
-            'example.package = example.package.tests\n' % (
+            'example.package.tests = example.package.tests\n' % (
                 cls.registry_name,
                 cls.registry_name,
             )
         )),
     ), 'example.package', '1.0', working_dir=cls.dist_dir)
+
+    # create a separate package that contains extra features.
+
+    cls._ep_extras = join(cls.dist_dir, 'example', 'extras')
+    makedirs(cls._ep_extras)
+    makedirs(join(cls._ep_extras, 'tests'))
+
+    test_dyna_math_js = join(cls._ep_extras, 'tests', 'test_dyna_math.js')
+    with open(test_dyna_math_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'var module_name = "example/package/math";\n'
+            'var math = require(module_name);\n'
+            '\n'
+            'describe("trying out dynamic import", function() {\n'
+            '    it("addition", function() {\n'
+            '        expect(math.add(3, 4)).equal(7);\n'
+            '        expect(math.add(5, 6)).equal(11);\n'
+            '    });\n'
+            '\n'
+            '});\n'
+        )
+
+    utils.make_dummy_dist(None, (
+        ('requires.txt', 'example.package'),
+        ('entry_points.txt', (
+            '[%s]\n'
+            'example.extras = example.extras\n'
+            '[%s.tests]\n'
+            'example.extras.tests = example.extras.tests\n' % (
+                cls.registry_name,
+                cls.registry_name,
+            )
+        )),
+    ), 'example.extras', '1.0', working_dir=cls.dist_dir)
 
     # webpack loaders setup/data
 
@@ -247,6 +283,15 @@ def cls_setup_webpack_example_package(cls):
     test_record.update(cls._example_package_test_map)
     test_registry.package_module_map['example.package'] = [
         'example.package.tests']
+
+    # for extras
+    registry.package_module_map['example.extras'] = ['example.extras']
+    registry.records['example.extras'] = {}
+    test_registry.records['example.extras.tests'] = {
+        'example/extras/tests/test_dyna_math': test_dyna_math_js,
+    }
+    test_registry.package_module_map['example.extras'] = [
+        'example.extras.tests']
 
 
 def generate_example_bundles(cls):

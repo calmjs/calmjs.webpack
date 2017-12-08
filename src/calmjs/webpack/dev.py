@@ -8,8 +8,11 @@ from __future__ import unicode_literals
 import codecs
 import json
 import logging
+from os import makedirs
 from os.path import basename
+from os.path import dirname
 from os.path import join
+from os.path import exists
 
 from calmjs.exc import ToolchainAbort
 from calmjs.toolchain import ARTIFACT_PATHS
@@ -29,11 +32,15 @@ except ImportError:  # pragma: no cover
     karma = None
 
 from calmjs.parse.parsers.es5 import parse
+from calmjs.parse import asttypes
+from calmjs.parse import io
+from calmjs.interrogate import yield_module_imports_nodes
 
 from calmjs.webpack.base import WEBPACK_CONFIG
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
+from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +60,16 @@ def _generate_combined_test_module(spec):
 
     # TEST_MODULE_PATHS_MAP
     test_file = join(spec[BUILD_DIR], '__calmjs_tests__.js')
+    aliases = spec[WEBPACK_CONFIG]['resolve']['alias'] if spec.get(
+        WEBPACK_CONFIG) else {}
     with codecs.open(test_file, 'w', encoding='utf8') as fd:
+        # ensure that the calmjs bootstrap is loaded first, if it is
+        # defined so that the dynamic imports are made available.
+        if DEFAULT_CALMJS_EXPORT_NAME in aliases:
+            fd.write("require('%s');\n" % DEFAULT_CALMJS_EXPORT_NAME)
         fd.writelines(
             "require(%s);\n" % json.dumps(m)
-            for m, path in spec[TEST_MODULE_PATHS_MAP].items() if (
+            for m, path in spec.get(TEST_MODULE_PATHS_MAP, {}).items() if (
                 # XXX lazily filter out loader modules
                 # should probably alias the ultimate resource, while
                 # leaving this in when webpack loaders are supported.
@@ -72,15 +85,53 @@ def _generate_combined_test_module(spec):
     return [test_file]
 
 
+def _finalize_test_path(spec, modname, path):
+    """
+    Process the path as a test file and bring it to a finalized location
+    if necessary.
+
+    Current condition for the relocation is usage of dynamic imports
+    within the provided ES5 source file.
+    """
+
+    # obeying import rules.
+    from calmjs.webpack.cli import default_toolchain
+
+    if not exists(path):
+        # nothing to do.
+        return path
+
+    with codecs.open(path, encoding='utf8') as fd:
+        try:
+            tree = io.read(parse, fd)
+            imports = yield_module_imports_nodes(tree)
+        except Exception:
+            # can't do anything.
+            return path
+
+    # if there are not any nodes that are not strings
+    if not any(
+            node for node in imports if not isinstance(node, asttypes.String)):
+        return path
+
+    # generate the new target using the toolchain instance.
+    rel_target = default_toolchain.modname_source_to_target(
+        spec, modname, path)
+    target = join(spec[BUILD_DIR], *rel_target.split('/'))
+    target_map = target + '.map'
+    makedirs(dirname(target))
+
+    with codecs.open(target, 'w', encoding='utf8') as ss:
+        with codecs.open(target_map, 'w', encoding='utf8') as sm:
+            io.write(convert_dynamic_require_unparser(), tree, ss, sm)
+
+    return target
+
+
 def _process_tests(spec):
     config = spec[karma.KARMA_CONFIG]
-    config['webpack']['resolve']['alias'].update(
-        spec.get(TEST_MODULE_PATHS_MAP, {}))
-
-    if spec.get(WEBPACK_SINGLE_TEST_BUNDLE):
-        return _generate_combined_test_module(spec)
-
     preprocessors = config['preprocessors']
+
     test_prefix = spec.get(TEST_FILENAME_PREFIX, TEST_FILENAME_PREFIX_DEFAULT)
     test_files = []
 
@@ -91,16 +142,30 @@ def _process_tests(spec):
             # completely omit any non JavaScript files or things with
             # loader plugins.
             continue
+
+        # as the provided js file can contain dynamic imports, verify
+        # that it does not.
+        final_path = _finalize_test_path(spec, modname, path)
+        spec[TEST_MODULE_PATHS_MAP][modname] = final_path
+
         # also apply the webpack preprocessor to the test.
-        preprocessors[path] = ['webpack'] + preprocessors.get(path, [])
+        preprocessors[final_path] = ['webpack'] + preprocessors.pop(path, [])
+
         # only inject
-        if basename(path).startswith(test_prefix):
-            test_files.append(path)
-        # TODO cannot just simply append this - they need to be built
-        # into the test artifact along with the tests.  At least provide
-        # them as aliases, maybe.
-        # else:
-        #     deps.append(k)
+        if basename(final_path).startswith(test_prefix):
+            test_files.append(final_path)
+
+        if path in spec.get(TEST_COVERED_TEST_PATHS, {}):
+            spec[TEST_COVERED_TEST_PATHS].discard(path)
+            spec[TEST_COVERED_TEST_PATHS].add(final_path)
+
+    config['webpack']['resolve']['alias'].update(
+        spec.get(TEST_MODULE_PATHS_MAP, {}))
+
+    if spec.get(WEBPACK_SINGLE_TEST_BUNDLE, True):
+        return _generate_combined_test_module(spec)
+    else:
+        logger.warning("using 'WEBPACK_SINGLE_TEST_BUNDLE' is unsupported")
 
     return test_files
 

@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import unittest
+from os.path import dirname
 from os.path import join
+from os import makedirs
+from textwrap import dedent
 
 try:
     import builtins
@@ -149,6 +152,62 @@ class KarmaTestcase(unittest.TestCase):
             }]},
         }, spec['karma_config']['webpack'])
 
+    def test_finalize_test_path_static(self):
+        src_targetpath = join(mkdtemp(self), 'some', 'src', 'test_file.js')
+        src_modpath = 'some/src/test_file'
+        spec = Spec(build_dir=mkdtemp(self))
+        src = dedent("""
+        var ordinary = 'file';
+        var module = require('a/std/string');
+        """)
+
+        makedirs(dirname(src_targetpath))
+        with open(src_targetpath, 'w') as fd:
+            fd.write(src)
+
+        self.assertEqual(
+            src_targetpath,
+            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+        )
+
+    def test_finalize_test_path_dynamic(self):
+        src_targetpath = join(mkdtemp(self), 'some', 'src', 'test_file.js')
+        src_modpath = 'some/src/test_file'
+        spec = Spec(build_dir=mkdtemp(self))
+        src = dedent("""
+        var ordinary = 'file';
+        var dyn = require(dynamic);
+        var module = require('a/std/string');
+        """)
+
+        makedirs(dirname(src_targetpath))
+        with open(src_targetpath, 'w') as fd:
+            fd.write(src)
+
+        self.assertEqual(
+            join(spec['build_dir'], *src_modpath.split('/')) + '.js',
+            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+        )
+
+    def test_finalize_test_path_malformed(self):
+        src_targetpath = join(mkdtemp(self), 'some', 'src', 'test_file.js')
+        src_modpath = 'some/src/test_file'
+        spec = Spec(build_dir=mkdtemp(self))
+        src = dedent("""
+        var malformed = 'file';
+        var dyn = require(malformed);
+        var module = require(
+        """)
+
+        makedirs(dirname(src_targetpath))
+        with open(src_targetpath, 'w') as fd:
+            fd.write(src)
+
+        self.assertEqual(
+            src_targetpath,
+            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+        )
+
     def test_karma_setup_empty(self):
         spec = Spec()
         with pretty_logging(stream=StringIO()) as s:
@@ -167,8 +226,12 @@ class KarmaTestcase(unittest.TestCase):
             build_dir=mkdtemp(self),
         )
 
-        karma_webpack(spec)
-        self.assertEqual(spec['karma_config']['files'], [])
+        with pretty_logging(stream=StringIO()) as s:
+            karma_webpack(spec)
+
+        self.assertEqual(spec['karma_config']['files'], [
+            join(spec['build_dir'], '__calmjs_tests__.js')])
+        self.assertNotIn('unsupported', s.getvalue())
 
     def test_karma_setup_basic_test_separate(self):
         karma_config = karma.build_base_config()
@@ -182,10 +245,13 @@ class KarmaTestcase(unittest.TestCase):
             webpack_single_test_bundle=False,
         )
 
-        karma_webpack(spec)
+        with pretty_logging(stream=StringIO()) as s:
+            karma_webpack(spec)
+
         self.assertEqual(spec['karma_config']['files'], [
             '/src/some/package/tests/test_module.js',
         ])
+        self.assertIn('unsupported', s.getvalue())
 
     def test_karma_setup_basic_test_single(self):
         karma_config = karma.build_base_config()
