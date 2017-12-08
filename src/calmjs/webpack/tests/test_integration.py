@@ -454,7 +454,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # this test with a very manual setup, that has the explicit path
         # to the webpack binary defined, but with the location to the
         # node_modules that contain the webpack package not associated
-        # with the toolchain such that webpack cannot locate itself.
+        # with the toolchain such that webpack cannot locate itself
+        # under certain circumstances.
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         transpile_sourcepath = {
@@ -480,15 +481,17 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         webpack.node_path = None
         webpack.working_dir = utils.mkdtemp(self)
         with pretty_logging(stream=StringIO()) as s:
-            with self.assertRaises(exc.WebpackExitError) as e:
+            try:
                 webpack(spec)
+            except exc.WebpackExitError:  # pragma: no cover
+                # This may more may not fail, we don't care.
+                pass
 
         log = s.getvalue()
-        self.assertIn('terminated with exit code 1', e.exception.args[0])
+        # we only care about this warning message.
         self.assertIn(
             "no valid node_modules found - webpack may fail to locate itself",
             log)
-        self.assertIn("webpack has encountered a fatal error", log)
 
     # Tests using the Toolchain with the cli abstraction.
 
