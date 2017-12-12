@@ -62,14 +62,14 @@ class KarmaAbsentTestCase(unittest.TestCase):
 class KarmaTestcase(unittest.TestCase):
 
     def test_coverage_generation_empty(self):
-        self.assertIsNone(dev._generate_coverage_loader(Spec()))
+        self.assertIsNone(dev._generate_coverage_loader(None, Spec()))
 
     def test_coverage_generation_targets(self):
         spec = Spec(test_covered_test_paths=[
             'some/test/file',
             'some/other/file',
         ])
-        loader = dev._generate_coverage_loader(spec)
+        loader = dev._generate_coverage_loader(None, spec)
         self.assertEqual({
             "loader": "sourcemap-istanbul-instrumenter-loader",
             "include": ['some/test/file', 'some/other/file'],
@@ -80,7 +80,7 @@ class KarmaTestcase(unittest.TestCase):
             build_dir=mkdtemp(self),
             test_covered_build_dir_paths=['afile.js'],
         )
-        loader = dev._generate_coverage_loader(spec)
+        loader = dev._generate_coverage_loader(None, spec)
         self.assertTrue(loader['include'][0].startswith(spec['build_dir']))
         self.assertTrue(loader['include'][0].endswith('afile.js'))
 
@@ -90,7 +90,7 @@ class KarmaTestcase(unittest.TestCase):
             test_covered_build_dir_paths=['afile.js'],
             test_covered_test_paths=['some/test/file'],
         )
-        loader = dev._generate_coverage_loader(spec)
+        loader = dev._generate_coverage_loader(None, spec)
         self.assertEqual({
             "loader": "sourcemap-istanbul-instrumenter-loader",
             "include": ['some/test/file', join(spec['build_dir'], 'afile.js')],
@@ -103,7 +103,7 @@ class KarmaTestcase(unittest.TestCase):
             test_covered_test_paths=['some/test/file'],
         )
         with self.assertRaises(KeyError):
-            dev._apply_coverage(spec)
+            dev._apply_coverage(None, spec)
 
     def test_apply_coverage_standard(self):
         spec = Spec(
@@ -114,7 +114,7 @@ class KarmaTestcase(unittest.TestCase):
             test_covered_build_dir_paths=['afile.js'],
             test_covered_test_paths=['some/test/file'],
         )
-        dev._apply_coverage(spec)
+        dev._apply_coverage(None, spec)
 
         self.assertEqual({
             "module": {"loaders": [{
@@ -141,7 +141,7 @@ class KarmaTestcase(unittest.TestCase):
             test_covered_build_dir_paths=['afile.js'],
             test_covered_test_paths=['some/test/file'],
         )
-        dev._apply_coverage(spec)
+        dev._apply_coverage(None, spec)
 
         self.assertEqual({
             "module": {'rules': [], "loaders": [{'loader': 'demo-loader'}, {
@@ -165,9 +165,11 @@ class KarmaTestcase(unittest.TestCase):
         with open(src_targetpath, 'w') as fd:
             fd.write(src)
 
+        from calmjs.webpack.cli import default_toolchain as toolchain
         self.assertEqual(
             src_targetpath,
-            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+            dev._finalize_test_path(
+                toolchain, spec, src_modpath, src_targetpath),
         )
 
     def test_finalize_test_path_dynamic(self):
@@ -184,9 +186,11 @@ class KarmaTestcase(unittest.TestCase):
         with open(src_targetpath, 'w') as fd:
             fd.write(src)
 
+        from calmjs.webpack.cli import default_toolchain as toolchain
         self.assertEqual(
             join(spec['build_dir'], *src_modpath.split('/')) + '.js',
-            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+            dev._finalize_test_path(
+                toolchain, spec, src_modpath, src_targetpath),
         )
 
     def test_finalize_test_path_malformed(self):
@@ -203,9 +207,11 @@ class KarmaTestcase(unittest.TestCase):
         with open(src_targetpath, 'w') as fd:
             fd.write(src)
 
+        from calmjs.webpack.cli import default_toolchain as toolchain
         self.assertEqual(
             src_targetpath,
-            dev._finalize_test_path(spec, src_modpath, src_targetpath),
+            dev._finalize_test_path(
+                toolchain, spec, src_modpath, src_targetpath),
         )
 
     def test_karma_setup_empty(self):

@@ -53,7 +53,7 @@ def webpack_advice(spec, extras=None):
     spec.advise(BEFORE_KARMA, karma_webpack, spec)
 
 
-def _generate_combined_test_module(spec):
+def _generate_combined_test_module(toolchain, spec):
     """
     Generate a combined test module can potentially save time.
     """
@@ -85,7 +85,7 @@ def _generate_combined_test_module(spec):
     return [test_file]
 
 
-def _finalize_test_path(spec, modname, path):
+def _finalize_test_path(toolchain, spec, modname, path):
     """
     Process the path as a test file and bring it to a finalized location
     if necessary.
@@ -93,9 +93,6 @@ def _finalize_test_path(spec, modname, path):
     Current condition for the relocation is usage of dynamic imports
     within the provided ES5 source file.
     """
-
-    # obeying import rules.
-    from calmjs.webpack.cli import default_toolchain
 
     if not exists(path):
         # nothing to do.
@@ -115,7 +112,7 @@ def _finalize_test_path(spec, modname, path):
         return path
 
     # generate the new target using the toolchain instance.
-    rel_target = default_toolchain.modname_source_to_target(
+    rel_target = toolchain.modname_source_to_target(
         spec, modname, path)
     target = join(spec[BUILD_DIR], *rel_target.split('/'))
     target_map = target + '.map'
@@ -128,7 +125,7 @@ def _finalize_test_path(spec, modname, path):
     return target
 
 
-def _process_tests(spec):
+def _process_tests(toolchain, spec):
     config = spec[karma.KARMA_CONFIG]
     preprocessors = config['preprocessors']
 
@@ -145,7 +142,7 @@ def _process_tests(spec):
 
         # as the provided js file can contain dynamic imports, verify
         # that it does not.
-        final_path = _finalize_test_path(spec, modname, path)
+        final_path = _finalize_test_path(toolchain, spec, modname, path)
         spec[TEST_MODULE_PATHS_MAP][modname] = final_path
 
         # also apply the webpack preprocessor to the test.
@@ -163,14 +160,14 @@ def _process_tests(spec):
         spec.get(TEST_MODULE_PATHS_MAP, {}))
 
     if spec.get(WEBPACK_SINGLE_TEST_BUNDLE, True):
-        return _generate_combined_test_module(spec)
+        return _generate_combined_test_module(toolchain, spec)
     else:
         logger.warning("using 'WEBPACK_SINGLE_TEST_BUNDLE' is unsupported")
 
     return test_files
 
 
-def _generate_coverage_loader(spec):
+def _generate_coverage_loader(toolchain, spec):
     # apply the loader to all paths to be covered that require the
     # webpack specific loader, as the originals will _not_ be used.
     include = []
@@ -192,8 +189,8 @@ def _generate_coverage_loader(spec):
         return loader
 
 
-def _apply_coverage(spec):
-    loader = _generate_coverage_loader(spec)
+def _apply_coverage(toolchain, spec):
+    loader = _generate_coverage_loader(toolchain, spec)
     if not loader:
         return
     config = spec[karma.KARMA_CONFIG]
@@ -202,7 +199,7 @@ def _apply_coverage(spec):
     loaders.append(loader)
 
 
-def karma_webpack(spec):
+def karma_webpack(spec, toolchain=None):
     """
     An advice for the karma runtime before execution of karma that is
     needed so that the generated artifiact will work  under karma;
@@ -221,6 +218,10 @@ def karma_webpack(spec):
     # function; this function should never be called if the calmjs.dev
     # python package is not available for import (and the setup should
     # not add this advice to the toolchain).
+
+    if toolchain is None:
+        # obeying import rules.
+        from calmjs.webpack.cli import default_toolchain as toolchain
 
     try:
         from calmjs.dev import karma
@@ -291,8 +292,8 @@ def karma_webpack(spec):
             },
         }
 
-    test_files = _process_tests(spec)
-    _apply_coverage(spec)
+    test_files = _process_tests(toolchain, spec)
+    _apply_coverage(toolchain, spec)
 
     # purge all files
     files = config['files'] = []
