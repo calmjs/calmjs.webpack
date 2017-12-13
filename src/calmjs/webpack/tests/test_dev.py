@@ -214,6 +214,57 @@ class KarmaTestcase(unittest.TestCase):
                 toolchain, spec, src_modpath, src_targetpath),
         )
 
+    def test_process_test_files_empty(self):
+        from calmjs.webpack.cli import default_toolchain as toolchain
+        # the bare minimum spec
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            karma_config={
+                'webpack': {
+                    'resolve': {
+                        'alias': {},
+                    },
+                },
+                'preprocessors': {
+                },
+            }
+        )
+        test_files, loaderspath = dev._process_test_files(toolchain, spec)
+        self.assertEqual(set(), test_files)
+        self.assertEqual({}, loaderspath)
+
+    def test_process_test_files_assorted(self):
+        from calmjs.webpack.cli import default_toolchain as toolchain
+        # the bare minimum spec
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            test_module_paths_map={
+                # the values are normally absolute paths.
+                'example/tests/test_main': 'test_main.js',
+                'example/tests/data.json': 'data.json',
+                'text!example/tests/data.txt': 'data.txt',
+            },
+            karma_config={
+                'webpack': {
+                    'resolve': {
+                        'alias': {},
+                    },
+                },
+                'preprocessors': {
+                },
+            }
+        )
+
+        with pretty_logging(stream=StringIO()) as s:
+            test_files, loaderspath = dev._process_test_files(toolchain, spec)
+
+        self.assertEqual({'test_main.js'}, test_files)
+        self.assertEqual(
+            {'text!example/tests/data.txt': 'data.txt'}, loaderspath)
+        self.assertIn(
+            "only aliasing modpath 'example/tests/data.json' to target "
+            "'data.json'", s.getvalue())
+
     def test_karma_setup_empty(self):
         spec = Spec()
         with pretty_logging(stream=StringIO()) as s:

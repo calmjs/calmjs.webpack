@@ -18,6 +18,11 @@ from calmjs.exc import ToolchainAbort
 from calmjs.toolchain import ARTIFACT_PATHS
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import TEST_MODULE_PATHS_MAP
+from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
+from calmjs.toolchain import toolchain_spec_prepare_loaderplugins
+from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
+from calmjs.toolchain import process_compile_entries
+from calmjs.toolchain import dict_setget_dict
 
 try:
     from calmjs.dev import karma
@@ -37,12 +42,16 @@ from calmjs.parse import io
 from calmjs.interrogate import yield_module_imports_nodes
 
 from calmjs.webpack.base import WEBPACK_CONFIG
+from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 
 logger = logging.getLogger(__name__)
+
+TEST_LOADER_MODNAMES = 'test_loader_modnames'
+TEST_MODNAMES = 'test_modnames'
 
 
 def webpack_advice(spec, extras=None):
@@ -67,17 +76,17 @@ def _generate_combined_test_module(toolchain, spec):
         # defined so that the dynamic imports are made available.
         if DEFAULT_CALMJS_EXPORT_NAME in aliases:
             fd.write("require('%s');\n" % DEFAULT_CALMJS_EXPORT_NAME)
+
+        # provide the loader keys first
         fd.writelines(
-            "require(%s);\n" % json.dumps(m)
-            for m, path in spec.get(TEST_MODULE_PATHS_MAP, {}).items() if (
-                # XXX lazily filter out loader modules
-                # should probably alias the ultimate resource, while
-                # leaving this in when webpack loaders are supported.
-                # TODO properly integrate calmjs loader plugin registry.
-                ('!' not in m) and
-                # only .js files.
-                path.endswith('.js')
-            )
+            "require(%s);\n" % json.dumps(module)
+            for module in spec.get(TEST_LOADER_MODNAMES, ())
+        )
+
+        # then include the tests.
+        fd.writelines(
+            "require(%s);\n" % json.dumps(module)
+            for module in spec.get(TEST_MODNAMES, ())
         )
 
     spec[karma.KARMA_CONFIG]['preprocessors'][test_file] = ['webpack']
@@ -125,39 +134,98 @@ def _finalize_test_path(toolchain, spec, modname, path):
     return target
 
 
-def _process_tests(toolchain, spec):
+def _process_loaders_paths(toolchain, spec, loaders_paths_map):
+    fake_spec = {
+        CALMJS_LOADERPLUGIN_REGISTRY: spec.get(CALMJS_LOADERPLUGIN_REGISTRY),
+        WEBPACK_RESOLVELOADER_ALIAS: {},
+    }
+    spec_update_sourcepath_filter_loaderplugins(
+        fake_spec, loaders_paths_map, 'default')
+    toolchain_spec_prepare_loaderplugins(
+        toolchain, fake_spec, 'testloaders', WEBPACK_RESOLVELOADER_ALIAS)
+    # borrow the private entry generator by the toolchain.
+    entries = toolchain._gen_modname_source_target_modpath(
+        spec, fake_spec['testloaders_sourcepath'])
+    # manually trigger the compile entries using the loaderplugin rules.
+    modpaths, targetpaths, export_module_names = process_compile_entries(
+        toolchain.compile_loaderplugin_entry, spec, entries)
+    # the targets will be injected into the alias.
     config = spec[karma.KARMA_CONFIG]
-    preprocessors = config['preprocessors']
+
+    webpack_conf = config['webpack']
+    # directly update these as aliases.
+    resolve = dict_setget_dict(webpack_conf, 'resolve')
+    resolve_alias = dict_setget_dict(resolve, 'alias')
+
+    for modname, p in targetpaths.items():
+        # add the finalized modname as alaises.
+        resolve_alias[modname] = join(spec[BUILD_DIR], p)
+        # also remove it from the test module paths map as these are not
+        # tests.
+        spec[TEST_MODULE_PATHS_MAP].pop(modname, None)
+
+    # since the registry should be the same, assume the results are
+    # as expected; so just do a simple merge.
+    resolve_loader = dict_setget_dict(webpack_conf, 'resolveLoader')
+    resolve_loader_alias = dict_setget_dict(resolve_loader, 'alias')
+    resolve_loader_alias.update(fake_spec[WEBPACK_RESOLVELOADER_ALIAS])
+
+    # grab all the raw modpath keys and store them for the module
+    # generation process later.
+    spec[TEST_LOADER_MODNAMES] = set(modpaths)
+
+
+def _process_test_files(toolchain, spec):
+    # return values
+    test_files = set()
+    loaders_paths_map = {}
 
     test_prefix = spec.get(TEST_FILENAME_PREFIX, TEST_FILENAME_PREFIX_DEFAULT)
-    test_files = []
+    config = spec[karma.KARMA_CONFIG]
+    preprocessors = config['preprocessors']
+    alias = config['webpack']['resolve']['alias']
+    spec[TEST_MODNAMES] = test_modnames = set()
 
     # Process tests separately; include them iff the filename starts
     # with test, otherwise they are just provided as dependency modules.
     for modname, path in spec.get(TEST_MODULE_PATHS_MAP, {}).items():
-        if not (('!' not in modname) and path.endswith('.js')):
-            # completely omit any non JavaScript files or things with
-            # loader plugins.
+        if '!' in modname:
+            # defer the handling to later
+            loaders_paths_map[modname] = path
+            continue
+
+        if not path.endswith('.js'):
+            # completely omit any non JavaScript files.
+            alias[modname] = path
+            logger.debug(
+                "only aliasing modpath '%s' to target '%s' as target does not "
+                "end with '.js'", modname, path,
+            )
             continue
 
         # as the provided js file can contain dynamic imports, verify
         # that it does not.
         final_path = _finalize_test_path(toolchain, spec, modname, path)
-        spec[TEST_MODULE_PATHS_MAP][modname] = final_path
+        alias[modname] = final_path
 
         # also apply the webpack preprocessor to the test.
         preprocessors[final_path] = ['webpack'] + preprocessors.pop(path, [])
 
         # only inject
         if basename(final_path).startswith(test_prefix):
-            test_files.append(final_path)
+            test_modnames.add(modname)
+            test_files.add(final_path)
 
         if path in spec.get(TEST_COVERED_TEST_PATHS, {}):
             spec[TEST_COVERED_TEST_PATHS].discard(path)
             spec[TEST_COVERED_TEST_PATHS].add(final_path)
 
-    config['webpack']['resolve']['alias'].update(
-        spec.get(TEST_MODULE_PATHS_MAP, {}))
+    return test_files, loaders_paths_map
+
+
+def _generate_test_files(toolchain, spec):
+    test_files, loaders_paths_map = _process_test_files(toolchain, spec)
+    _process_loaders_paths(toolchain, spec, loaders_paths_map)
 
     if spec.get(WEBPACK_SINGLE_TEST_BUNDLE, True):
         return _generate_combined_test_module(toolchain, spec)
@@ -292,11 +360,11 @@ def karma_webpack(spec, toolchain=None):
             },
         }
 
-    test_files = _process_tests(toolchain, spec)
+    test_files = _generate_test_files(toolchain, spec)
     _apply_coverage(toolchain, spec)
 
     # purge all files
     files = config['files'] = []
     # included the artifacts first
     # then provide the test files.
-    files.extend(test_files)
+    files.extend(sorted(test_files))

@@ -203,6 +203,33 @@ def cls_setup_webpack_example_package(cls):
     makedirs(cls._ep_extras)
     makedirs(join(cls._ep_extras, 'tests'))
 
+    # for testing loading of data provided by a test
+    hello_txt = join(cls._ep_extras, 'tests', 'hello.txt')
+    with open(hello_txt, 'w') as fd:
+        fd.write("hello world")
+
+    # for testing of loader module integration.
+    test_hello_txt_js = join(cls._ep_extras, 'tests', 'test_hello.js')
+    with open(test_hello_txt_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            '\n'
+            'describe("importing test data", function() {\n'
+            '    var hello = require("text!example/extras/tests/hello.txt");\n'
+            '    it("test text loaded", function() {\n'
+            '        expect(hello).equal("hello world");\n'
+            '    });\n'
+            '\n'
+            '    it("all text loaded", function() {\n'
+            '        var mod = require("text!example/extras/hello.txt");\n'
+            '        expect(hello).equal(mod);\n'
+            '    });\n'
+            '\n'
+            '});\n'
+        )
+
+    # for testing dynamic loading
     test_dyna_math_js = join(cls._ep_extras, 'tests', 'test_dyna_math.js')
     with open(test_dyna_math_js, 'w') as fd:
         fd.write(
@@ -286,9 +313,13 @@ def cls_setup_webpack_example_package(cls):
 
     # for extras
     registry.package_module_map['example.extras'] = ['example.extras']
-    registry.records['example.extras'] = {}
+    registry.records['example.extras'] = {
+        'text!example/extras/hello.txt': hello_txt,
+    }
     test_registry.records['example.extras.tests'] = {
         'example/extras/tests/test_dyna_math': test_dyna_math_js,
+        'example/extras/tests/test_hello_txt': test_hello_txt_js,
+        'text!example/extras/tests/hello.txt': hello_txt,
     }
     test_registry.package_module_map['example.extras'] = [
         'example.extras.tests']
