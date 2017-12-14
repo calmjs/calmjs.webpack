@@ -4,7 +4,7 @@ matrix:
     - os: osx
     - python: 3.7-dev
     - python: pypy3.3-5.2-alpha1
-    - env: TRAVIS_NODE_VERSION=7.4
+    - env: TRAVIS_NODE_VERSION=9
   include:
     - language: python
       python: 2.7
@@ -14,16 +14,16 @@ matrix:
       env: TRAVIS_NODE_VERSION=4.8
     - language: python
       python: 3.4
-      env: TRAVIS_NODE_VERSION=6.11
+      env: TRAVIS_NODE_VERSION=6.12
     - language: python
       python: 3.5
-      env: TRAVIS_NODE_VERSION=6.11
+      env: TRAVIS_NODE_VERSION=6.12
     - language: python
       python: 3.6
-      env: TRAVIS_NODE_VERSION=7.10
+      env: TRAVIS_NODE_VERSION=8.9
     - language: python
       python: 3.7-dev
-      env: TRAVIS_NODE_VERSION=8.0
+      env: TRAVIS_NODE_VERSION=9
     - language: python
       python: pypy
       env: TRAVIS_NODE_VERSION=4.8
