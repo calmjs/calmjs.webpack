@@ -277,7 +277,6 @@ def cls_setup_webpack_example_package(cls):
                 'text-loader': '~0.0.1',
             },
         })),
-        # ('package.json', '{"dependencies": {"text-loader":"~0.0.1"}}',),
         ('entry_points.txt', (
             '[%s]\n'
             'example.loader = example.loader\n' % (

@@ -60,6 +60,14 @@ def run_webpack(script, *artifacts):
     return node(stream.getvalue())
 
 
+def _setup_extra_install(working_dir, packages):
+    # used for the integration test for the TestCase classes below, and
+    # MUST be used after setup_class_install_environment was called.
+    if not os.environ.get('CALMJS_TEST_ENV'):  # pragma: no cover
+        driver = Driver(working_dir=working_dir)
+        driver.pkg_manager_install(packages, production=False, merge=True)
+
+
 @unittest.skipIf(*skip_full_toolchain_test())
 class ToolchainIntegrationTestCase(unittest.TestCase):
     """
@@ -91,16 +99,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         utils.setup_class_integration_environment(cls)
         # also our test data.
         cls_setup_webpack_example_package(cls)
-
-        # with the locally defined example.loader package, attempt to
-        # also install the npm dependencies, if available.  Make use of
-        # the attributes defined by setup_class_install_environment, if
-        # this is not executed with an already available CALMJS_TEST_ENV
-        # to not modify an explicitly provided environment.
-        if not os.environ.get('CALMJS_TEST_ENV'):  # pragma: no cover
-            driver = Driver(working_dir=cls._cls_tmpdir)
-            driver.pkg_manager_install(
-                ['example.loader'], production=False, merge=True)
+        # plus the extra packages
+        _setup_extra_install(cls._cls_tmpdir, ['example.loader'])
 
         # since our configuration paths will be at arbitrary locations
         # (i.e. temporary directories), NODE_PATH must be defined.
@@ -1207,6 +1207,11 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # nosetest will still execute setUpClass, so the test condition
+        # will need to be checked here also.
+        if karma is None:  # pragma: no cover
+            return
+
         cls._cwd = os.getcwd()
         utils.setup_class_install_environment(
             cls, Driver, ['calmjs.webpack', 'calmjs.dev'], production=False)
@@ -1221,6 +1226,8 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.setup_class_integration_environment(cls)
         # also our test data.
         cls_setup_webpack_example_package(cls)
+        # plus the extra packages
+        _setup_extra_install(cls._cls_tmpdir, ['example.loader'])
 
     @classmethod
     def tearDownClass(cls):
