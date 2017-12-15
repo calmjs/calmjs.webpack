@@ -1253,28 +1253,55 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
     def test_karma_test_runner_coverage(self):
         # utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage',
                 'webpack', 'example.package',
                 '--export-target=' + export_target,
+                '--build-dir=' + build_dir,
             ])
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
 
+        # verify that the coverage was recorded only for packge
+        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        with codecs.open(coverage_file, encoding='utf8') as fd:
+            coverage = json.load(fd)
+        expected = {
+            join(build_dir, 'example', 'package', 'main.js'),
+            join(build_dir, 'example', 'package', 'bad.js'),
+            join(build_dir, 'example', 'package', 'math.js'),
+        }
+        self.assertEqual(expected, set(coverage.keys()))
+
     def test_karma_test_runner_coverage_covertests(self):
         # utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage', '--cover-test',
                 'webpack', 'example.package',
                 '--export-target=' + export_target,
+                '--build-dir=' + build_dir,
             ])
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
+
+        # verify that the coverage was recorded for test also.
+        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        with codecs.open(coverage_file, encoding='utf8') as fd:
+            coverage = json.load(fd)
+        expected = {
+            join(build_dir, 'example', 'package', 'main.js'),
+            join(build_dir, 'example', 'package', 'bad.js'),
+            join(build_dir, 'example', 'package', 'math.js'),
+            join(self._ep_root, 'tests', 'test_math.js'),
+        }
+        self.assertEqual(expected, set(coverage.keys()))
 
     def test_karma_test_runner_dynamic_import_in_tests(self):
         # utils.stub_stdouts(self)
@@ -1291,15 +1318,32 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
     def test_karma_test_runner_dynamic_import_in_tests_coverage(self):
         # utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
+        build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_extras.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage', '--cover-test',
                 'webpack', 'example.extras',
                 '--export-target=' + export_target,
+                '--build-dir=' + build_dir,
             ])
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
+
+        # verify that the coverage was recorded.
+        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        with codecs.open(coverage_file, encoding='utf8') as fd:
+            coverage = json.load(fd)
+        expected = {
+            join(build_dir, 'example', 'package', 'main.js'),
+            join(build_dir, 'example', 'package', 'bad.js'),
+            join(build_dir, 'example', 'package', 'math.js'),
+            # directly supplied like previous
+            join(self._ep_extras, 'tests', 'test_hello.js'),
+            # transpiled to build_dir
+            join(build_dir, 'example', 'extras', 'tests', 'test_dyna_math.js'),
+        }
+        self.assertEqual(expected, set(coverage.keys()))
 
     def test_karma_test_runner_standalone_artifact(self):
         """

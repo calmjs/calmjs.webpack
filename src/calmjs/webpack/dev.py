@@ -13,6 +13,7 @@ from os.path import basename
 from os.path import dirname
 from os.path import join
 from os.path import exists
+from os.path import normpath
 
 from calmjs.exc import ToolchainAbort
 from calmjs.toolchain import ARTIFACT_PATHS
@@ -123,7 +124,7 @@ def _finalize_test_path(toolchain, spec, modname, path):
     # generate the new target using the toolchain instance.
     rel_target = toolchain.modname_source_to_target(
         spec, modname, path)
-    target = join(spec[BUILD_DIR], *rel_target.split('/'))
+    target = join(spec[BUILD_DIR], normpath(rel_target))
     target_map = target + '.map'
     makedirs(dirname(target))
 
@@ -159,7 +160,7 @@ def _process_loaders_paths(toolchain, spec, loaders_paths_map):
 
     for modname, p in targetpaths.items():
         # add the finalized modname as alaises.
-        resolve_alias[modname] = join(spec[BUILD_DIR], p)
+        resolve_alias[modname] = join(spec[BUILD_DIR], normpath(p))
         # also remove it from the test module paths map as these are not
         # tests.
         spec[TEST_MODULE_PATHS_MAP].pop(modname, None)
@@ -251,7 +252,7 @@ def _generate_coverage_loader(toolchain, spec):
     for covered_path in spec.get(TEST_COVERED_BUILD_DIR_PATHS, []):
         # these will need to be joined with build_dir, as they are
         # relative.
-        include.append(join(spec[BUILD_DIR], covered_path))
+        include.append(join(spec[BUILD_DIR], normpath(covered_path)))
 
     if include:
         return loader
