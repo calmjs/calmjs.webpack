@@ -187,6 +187,10 @@ def cls_setup_webpack_example_package(cls):
         ('requires.txt', ''),
         ('calmjs_module_registry.txt', cls.registry_name),
         ('entry_points.txt', (
+            '[calmjs.artifacts]\n'
+            'ex.webpack.js = calmjs.webpack.artifact:complete_webpack\n'
+            '[calmjs.artifacts.tests]\n'
+            'ex.webpack.js = calmjs.webpack.artifact:test_complete_webpack\n'
             '[%s]\n'
             'example.package = example.package\n'
             '[%s.tests]\n'
