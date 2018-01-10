@@ -18,7 +18,7 @@ install:
   - virtualenv --clear venv
   - "venv\\Scripts\\activate.bat"
   - pip install coverage
-  - pip install calmjs calmjs.dev calmjs.parse
+  - pip install -U calmjs calmjs.dev
   - python setup.py develop
 
 test_script:

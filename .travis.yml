@@ -28,8 +28,8 @@ matrix:
       python: pypy
       env: TRAVIS_NODE_VERSION=4.8
     - language: python
-      python: pypy3.3-5.2-alpha1
-      env: TRAVIS_NODE_VERSION=6.9
+      python: pypy3
+      env: TRAVIS_NODE_VERSION=6.12
     # test different versions of Node.js on osx
     - language: node_js
       node_js: 4.6
@@ -70,8 +70,9 @@ install:
   - pip install coverage flake8
   # Installing all the packages via pip to ensure the wheels are used,
   # to avoid the failure conditions with using the setup.py scripts that
-  # occur on various platforms and configurations.
-  - pip install calmjs calmjs.dev calmjs.parse
+  # occur on various platforms and configurations.  The -U flag is also
+  # used to ensure setuptools is updated.
+  - pip install -U calmjs calmjs.dev
   - python setup.py develop
 script:
   - flake8 setup.py src
