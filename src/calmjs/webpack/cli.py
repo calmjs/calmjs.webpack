@@ -209,7 +209,7 @@ def create_spec(
             package_names, method=source_registry_method)
         if source_registries:
             logger.info(
-                "automatically picked registries %r for building source map",
+                "automatically picked registries %r for sourcepaths",
                 source_registries,
             )
         elif package_names:
@@ -222,7 +222,7 @@ def create_spec(
             logger.warning('no packages specified for spec construction')
     else:
         logger.info(
-            "using manually specified registries %r for building source map",
+            "using manually specified registries %r for sourcepaths",
             source_registries,
         )
 

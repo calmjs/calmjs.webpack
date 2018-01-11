@@ -14,6 +14,7 @@ similar package repositories.
 .. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=master
     :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=master
 
+.. |AMD| replace:: AMD (Asynchronous Module Definition)
 .. |calmjs| replace:: ``calmjs``
 .. |calmjs.dev| replace:: ``calmjs.dev``
 .. |calmjs.parse| replace:: ``calmjs.parse``
@@ -98,7 +99,7 @@ currently only standard ES5 is understood.  The reason for this is that
 |calmjs.parse|_, the parser library that |calmjs.webpack| make use for
 the parsing of JavaScript, currently only understand ES5, and is used
 for extracting all the import statements to create the dynamic Calmjs
-import system for webpack, and to also transpile the CommonJS and AMD
+import system for webpack, and to also transpile the CommonJS and |AMD|
 require statements to make use of this dynamic import system.
 
 The resulting sources will be placed in a build directory, along with
@@ -187,9 +188,9 @@ required by ``example.package`` into the current directory through
 |npm|.  Note that its dependents will also gain the declared
 dependencies.
 
-For more usage please continue reading through this document or consult
-the documentation for |calmjs|_.  Otherwise, please continue to the
-`usage`_ section.
+For further details about how this all works can be found in the
+documentation for |calmjs|_.  Otherwise, please continue to the `usage`_
+section.
 
 Alternative installation methods (advanced users)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -320,9 +321,9 @@ The following is am example for packages that have nested submodules
 
 While the import locations declared looks exactly like a Python module
 (as per the rules of a Python entry point), the ``calmjs.module``
-registry will present them using the CommonJS style import paths (i.e.
-``'example/lib'`` and ``'example/app'``), so users of that need those
-JavaScript modules to be sure they ``require`` those strings.
+registry will present them using the CommonJS/ES6 style import paths
+(i.e.  ``'example/lib'`` and ``'example/app'``), so users of that need
+those JavaScript modules to be sure they ``require`` those strings.
 
 Please also note that the default source extractor will extract all
 JavaScript files within those directories.  Finally, as a consequence of
@@ -350,8 +351,13 @@ following:
             'calmjs.webpack>=1.0.0,<2',
             # plus other installation requirements
         ],
-        # if the above is omitted or if the GPL license is not desired
-        # for the project, the following should be included instead.
+        # If the usage of the GPL is impossible for the project, or
+        # declaring a direct dependency on calmjs packages is impossible
+        # for the project for whatever other reasons (even though the
+        # project itself will NOT be required to include/import ANY code
+        # from the calmjs namespace), setup_requires may be used instead
+        # of install_requires, and the following should also be included
+        # as well:
         package_json={
             "devDependencies": {
                 "webpack": "~2.6.0",
@@ -375,7 +381,7 @@ file.  An example run:
 
 .. code:: sh
 
-    $ calmjs webpack example 
+    $ calmjs webpack example
     Hash: 1dbcdb61e3afb4d2a383
     Version: webpack 2.6.1
     Time: 82ms
@@ -570,12 +576,101 @@ The above command invokes the standalone Karma runner using the
 artifact file, using the tests provided by the ``example`` package.  The
 test execution is similar to the one during the development process.
 
+Declaring prebuilt webpack artifacts for Python packages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Finally, to complete the Python package deployment story, the process
+should include the automatic generation and inclusion of the JavaScript
+artifacts in the resulting Python wheel.  This can be achieved by
+specifying an entry in the ``calmjs.artifacts`` registry, with the key
+being the filename of the artifact and the value being the import
+location to a builder.  A default builder function provided at
+``calmjs.webpack.artifact:complete_webpack`` will enable the generation
+of a complete webpack artifact for the Python package.  For example:
+
+.. code:: ini
+
+    [calmjs.artifacts]
+    example.webpack.js = calmjs.webpack.artifact:complete_webpack
+
+Once those entry points are installed, running ``calmjs artifact build
+example.package`` will make use of the webpack toolchain and build the
+artifact at ``example.webpack.js`` inside the ``calmjs_artifacts``
+directory within the metadata directory for ``example.package``.
+Alternatively, for solution more integrated with ``setuptools``, the
+``setup`` function in ``setup.py`` should also enable the
+``build_calmjs_artifacts`` flag such that ``setup.py build`` will also
+trigger the building process.  This is useful for automatically
+generating and including the artifact as part of the wheel building
+process.  Consider this ``setup.py``:
+
+.. code:: Python
+
+    setup(
+        name='example.package',
+        # ... other required fields truncated
+        build_calmjs_artifacts=True,
+        entry_points="""
+        # ... other entry points truncated
+        [calmjs.module]
+        example.package = example.package
+
+        [calmjs.artifacts]
+        example.webpack.js = calmjs.webpack.artifact:complete_webpack
+        """,
+    )
+
+Building the wheel using ``setup.py`` may result in something like this.
+Note that the execution of |webpack| was part of the process and that
+the metadata (egg-info) directory was then built into the wheel.
+
+.. code::
+
+    $ python setup.py bdist_wheel
+    running bdist_wheel
+    running build
+    ...
+    running build_calmjs_artifacts
+    automatically picked registries ['calmjs.module'] for sourcepaths
+    using loaderplugin registry 'calmjs.webpack.loaderplugins'
+    using calmjs bootstrap; webpack.output.library set to '__calmjs__'
+    ...
+    Version: webpack 2.6.1
+    Time: 240ms
+                 Asset    Size  Chunks                    Chunk Names
+    example.webpack.js   10 kB       0  [emitted]  [big]  main
+    ...
+    running install_egg_info
+    Copying src/example.package.egg-info to build/.../wheel/example.package...
+    running install_scripts
+    creating build/.../wheel/example.package-1.0.dist-info/WHEEL
+
+For testing the package artifact, the following entry point should also
+be specified under the ``calmjs.artifacts.tests`` registry, such that
+running ``calmjs artifact karma example.package`` will execute the
+JavaScript tests declared by ``example.package`` against the artifacts
+that were declared in ``calmjs.artifacts``.
+
+.. code:: ini
+
+    [calmjs.artifacts.tests]
+    example.webpack.js = calmjs.webpack.artifact:test_complete_webpack
+
 
 Troubleshooting
 ---------------
 
 The following are some known issues with regards to this package and its
 integration with other Python/Node.js packages.
+
+CRITICAL calmjs.runtime WebpackRuntimeError: unable to locate 'webpack'
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This means the current Node.js environment is missing the |webpack|
+package from |npm|; either install it manually with it or through
+|calmjs| on this package.  If a given Python package is required to use
+webpack to generate the package, its ``package_json`` should declare
+that, or declare dependency on ``calmjs.webpack``.
 
 CRITICAL calmjs.runtime WebpackExitError: webpack terminated
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

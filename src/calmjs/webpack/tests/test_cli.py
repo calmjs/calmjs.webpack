@@ -84,7 +84,7 @@ class CliTestCase(unittest.TestCase):
         log = stream.getvalue()
         self.assertIn(
             "automatically picked registries ['calmjs.module'] for "
-            "building source map", log,
+            "sourcepaths", log,
         )
 
     def test_create_spec_with_calmjs_webpack_entry_point_only(self):
@@ -129,7 +129,7 @@ class CliTestCase(unittest.TestCase):
         log = stream.getvalue()
         self.assertIn(
             "automatically picked registries ['calmjs.module'] for "
-            "building source map", log,
+            "sourcepaths", log,
         )
         self.assertEqual(spec.get('webpack_entry_point'), '__calmjs__')
         self.assertEqual(
@@ -166,7 +166,7 @@ class CliTestCase(unittest.TestCase):
         log = stream.getvalue()
         self.assertIn(
             "using manually specified registries ['calmjs.module.tests'] for "
-            "building source map", log,
+            "sourcepaths", log,
         )
 
     def test_create_spec_with_calmjs_webpack_entry_point_no_compat(self):
