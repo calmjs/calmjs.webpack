@@ -250,9 +250,6 @@ def create_spec(
         ), 'bundle_sourcepath',
     )
 
-    # assume the entry point is a sane value
-    spec[WEBPACK_ENTRY_POINT] = webpack_entry_point
-
     if calmjs_compat:
         logger.info(
             "using calmjs bootstrap; webpack.output.library set to '%s'",
@@ -260,6 +257,7 @@ def create_spec(
         )
         # the output library and entry point is forced.
         spec[WEBPACK_OUTPUT_LIBRARY] = DEFAULT_BOOTSTRAP_EXPORT
+        spec[WEBPACK_ENTRY_POINT] = DEFAULT_BOOTSTRAP_EXPORT
         # also specify this as the external to notify the toolchain that
         # the complete passthrough bootstrap module will be required.
         spec[WEBPACK_EXTERNALS] = {
@@ -276,6 +274,9 @@ def create_spec(
             method=bundlepath_method,
         ))
     else:
+        # assume the entry point is a sane value
+        spec[WEBPACK_ENTRY_POINT] = webpack_entry_point
+
         # TODO should warn about the *path_methods if they are not set
         # to 'all'.
         # TODO address the webpack.output.libraryTarget option, as

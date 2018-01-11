@@ -49,6 +49,27 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(
             spec['webpack_output_library'], 'calmjs.webpack.export')
 
+    def test_create_spec_entry_point_compat_enabled(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                [], calmjs_compat=True,
+                webpack_entry_point='foo',
+                webpack_output_library='foo',
+            )
+
+        self.assertNotIn('packages []', stream.getvalue())
+        self.assertIn('no packages specified', stream.getvalue())
+        self.assertIn(
+            "webpack_entry_point and/or webpack_output_library is assigned a "
+            "different value than their defaults while calmjs_compat is set "
+            "to True in function calmjs.webpack.cli.create_spec; to have "
+            "those values take effect, ensure the calmjs_compat argument is "
+            "set to False", stream.getvalue()
+        )
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertEqual(spec['webpack_output_library'], '__calmjs__')
+        self.assertEqual(spec['webpack_entry_point'], '__calmjs__')
+
     def test_create_spec_with_calmjs_webpack(self):
         with pretty_logging(stream=StringIO()) as stream:
             spec = create_spec(['calmjs.webpack'])
@@ -66,23 +87,24 @@ class CliTestCase(unittest.TestCase):
             "building source map", log,
         )
 
-    def test_create_spec_with_calmjs_webpack_entry_point_warning(self):
+    def test_create_spec_with_calmjs_webpack_entry_point_only(self):
         with pretty_logging(stream=StringIO()) as stream:
             spec = create_spec(['calmjs.webpack'], webpack_entry_point='entry')
         self.assertTrue(isinstance(spec, Spec))
         self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
-        self.assertEqual(spec.get('webpack_entry_point'), 'entry')
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module'])
         self.assertEqual(
             spec['source_package_names'], ['calmjs.webpack'])
 
+        # ensure the warning message, too.
         log = stream.getvalue()
         self.assertIn(
             "webpack_entry_point and/or webpack_output_library is assigned "
             "a different value than their defaults while calmjs_compat is set "
             "to True ", log
         )
+        self.assertEqual(spec.get('webpack_entry_point'), '__calmjs__')
 
     def test_create_spec_with_calmjs_webpack_output_library_warning(self):
         with pretty_logging(stream=StringIO()) as stream:
