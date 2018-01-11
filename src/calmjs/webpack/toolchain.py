@@ -93,7 +93,7 @@ _WEBPACK_CONFIG_PLUGINS = (
 # the target will still be specified as umd to simplify interrogation
 # of the generated bundles.
 # TODO figure out if this will work with require('globals'), for the
-# commonjs support(?)
+# commonjs support for multiple calmjs webpack artifacts
 
 # the most basic version: only import the modules (via require); this
 # is used when webpack.output.library is undefined (as the default
@@ -365,7 +365,7 @@ class WebpackToolchain(ES5Toolchain):
                 'filename': basename(spec[EXPORT_TARGET]),
                 # TODO determine if publicPath is needed.
 
-                # XXX Currently using magic values.  The library target
+                # TODO these are using magic values.  The library target
                 # should be configured, along with umdNamedDefine also
                 # when the way to expose the relevant options as proper
                 # sets are determined.
@@ -420,7 +420,7 @@ class WebpackToolchain(ES5Toolchain):
                     DEFAULT_BOOTSTRAP_EXPORT
                 )
                 # assign the internal loader to the alias
-                # TODO check that the defaut loader not being passed
+                # TODO check that the default loader not being passed
                 # through check_all_alias_declared is not an issue.
                 alias[DEFAULT_CALMJS_EXPORT_NAME] = self.write_lookup_module(
                     spec, _DEFAULT_LOADER_FILENAME,

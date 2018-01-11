@@ -47,7 +47,7 @@ class ReplacementWalker(object):
         # depth first.
         for child in tree.children():
             if child is None:
-                # XXX this should be an upstream bug.
+                # a missing value might be an upstream bug?
                 continue
             self.replace(child, nodemap)
 

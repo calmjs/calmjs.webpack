@@ -64,12 +64,11 @@ extras_calmjs_methods = {
     # it be exported as part of the __calmjs__.modules, or also generate
     # a completely separate thing.
     'explicit': get_extras_calmjs,
-    # XXX maybe 'none' into 'external'?
     # if 'none' is used, the default node_modules lookup behavior will
     # be used to get the module on require to include into the generated
     # artifact.
-    # TODO: should define a way to declare explicit externals.
     'none': map_none,
+    # TODO: should define a way to declare explicit externals.
 }
 
 external_extras_calmjs_methods = {

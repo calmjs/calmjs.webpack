@@ -313,13 +313,10 @@ def karma_webpack(spec, toolchain=None):
     config = spec.get(karma.KARMA_CONFIG)
     config['preprocessors'] = config.get('preprocessors', {})
 
-    # apply the webpack config
-    # importing the constant here, because dev could be imported by
-    # any module; doing so avoids circular import.
     # XXX note that the current way that calmjs.dev only deal with the
-    # JSON chunk, and not the actual script which which includes actual
-    # object types - will likely need that be fixed.  For now, simply
-    # just do this.
+    # JSON chunk, and not any actual executable scripts which which
+    # includes actual object types - will likely need that be fixed.
+    # For now, simply just do this.
     if WEBPACK_CONFIG in spec:
         webpack_config = {
             # filter out the entry as karma-webpack should be taking

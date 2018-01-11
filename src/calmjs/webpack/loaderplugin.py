@@ -63,8 +63,6 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
         return modpaths, targets, export_module_names
 
     def __call__(self, toolchain, spec, modname, source, target, modpath):
-        # XXX this is only a partial implementation, no resolution of
-        # nested/embedded loaders are done.
         stripped_modname = self.unwrap(modname)
         chained = (
             self.registry.get_record(stripped_modname)
