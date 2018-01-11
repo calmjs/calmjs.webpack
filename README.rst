@@ -16,11 +16,14 @@ similar package repositories.
 
 .. |calmjs| replace:: ``calmjs``
 .. |calmjs.dev| replace:: ``calmjs.dev``
+.. |calmjs.parse| replace:: ``calmjs.parse``
 .. |calmjs.webpack| replace:: ``calmjs.webpack``
+.. |karma| replace:: ``npm``
 .. |npm| replace:: ``npm``
 .. |webpack| replace:: ``webpack``
 .. _Calmjs framework: https://pypi.python.org/pypi/calmjs
 .. _calmjs: https://pypi.python.org/pypi/calmjs
+.. _calmjs.parse: https://pypi.python.org/pypi/calmjs.parse
 .. _Node.js: https://nodejs.org/
 .. _npm: https://www.npmjs.com/
 .. _webpack: https://webpack.js.org/
@@ -131,46 +134,62 @@ Installation
 It is recommended that the local environment already have Node.js and
 |npm| installed at the very minimum to enable the installation of
 |webpack|, if it hasn't already been installed and available.  Also,
-the version of Python must be either 2.7 or 3.3+; PyPy is supported,
-with PyPy3 version 5.2.0-alpha1 must be used due to a upstream package
-failing to function in the currently stable PyPy3 version 2.4. (XXX TBC)
+the version of Python must be either 2.7 or 3.3+.  Both PyPy and PyPy3
+are supported, with the recommended versions being PyPy3-5.2 or greater,
+although PyPy3-2.4 should work, however there may be difficulties due to
+new versions of dependencies rejecting older versions of Python.
 
 To install |calmjs.webpack| into a given Python environment, it may be
-installed via the git repo through this command (XXX correct when done)
+installed via the git repo through this command:
 
 .. code:: sh
 
-    $ pip install calmjs
-    $ pip install -e git+https://github.com/calmjs/calmjs.webpack.git#egg=calmjs.webpack
+    $ pip install calmjs.webpack
 
-If a local installation of webpack into the current directory is
-desired, it can be done through |calmjs| with the following command:
+Installing/using webpack with calmjs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. _installing webpack for calmjs:
+
+To establish a development/build environment for a Python package with
+the support for |webpack| through |calmjs.webpack| in the current
+working directory, the following command may be executed:
 
 .. code:: sh
 
     $ calmjs npm --install calmjs.webpack
 
-Which does the equivalent of ``npm install webpack``; while this does
-not seem immediately advantageous, other Python packages that declared
-their dependencies for specific sets of tool can be invoked like so, and
-to follow through on that.  As an example, a given package (say
-``demo.package``) may declare dependencies on |webpack| along with a
-number of other packages that they require through |npm|, the process
-then simply become this:
+While running ``npm install webpack`` (along with other related packages
+declared by |calmjs.webpack| that it needs from |npm|) will achieve the
+same effect, do note the Calmjs framework makes it possible for |npm|
+dependencies to be propagated down to dependent packages; such that if a
+Python package that have declared |calmjs.webpack| as a dependency
+(either through ``install_requires`` or an ``extras_require`` in its
+``setup.py``) may have its complete set of dependencies on |npm| be
+installed using the following command (assuming the package is named
+``example.package``:
 
 .. code:: sh
 
-    $ calmjs npm --install demo.package
+    $ calmjs npm --install example.package
 
-All standard JavaScript and Node.js dependencies for ``demo.package``
-will now be installed into the current directory through the relevant
-tools.  This process will also install all the other dependencies
-through |npm| or |webpack| that other Python packages depended on by
-``demo.package`` have declared.  Most importantly, dependents of
-``demo.package`` will also gain those requirements available via |npm|.
+If the dependency on |calmjs.webpack| was declared as an extras_require
+dependency under a section named |webpack|, the command will then become
+the following:
+
+.. code:: sh
+
+    $ calmjs npm --install example.package[webpack]
+
+If the dependencies are declared correctly, using the above command will
+install all the required dependencies for the JavaScript/Node.js code
+required by ``example.package`` into the current directory through
+|npm|.  Note that its dependents will also gain the declared
+dependencies.
 
 For more usage please continue reading through this document or consult
-the documentation for |calmjs|_.
+the documentation for |calmjs|_.  Otherwise, please continue to the
+`usage`_ section.
 
 Alternative installation methods (advanced users)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,15 +214,17 @@ please execute ``python setup.py egg_info`` if any message about
 ``Unknown distribution option:`` is noted during the invocation of
 ``setup.py``.
 
-As |calmjs| is declared as both a namespace and a package, mixing
-installation methods as described above when installing with other
-|calmjs| packages may result in the module importer being unable to look
-up the target module.  While this normally will not affect end users,
-as typically only the standard installation method (i.e. wheel) will be
-used, for developers it can be troublesome.  To resolve this, reinstall
-all packages using the same installation method (i.e. ``python setup.py
-develop``), or import a module from the main |calmjs| package.  Here
-is an example run:
+As |calmjs| is declared as both namespace and package, there are certain
+low-level setup that is required on the working Python environment to
+ensure that all modules within can be located correctly.  However,
+versions of ``setuptools`` earlier than `v31.0.0`__ does not create the
+required package namespace declarations when a package is installed
+using this development installation method when mixed with ``pip
+install`` within the same namespace.  As a result, inconsistent import
+failures can happen for any modules under the |calmjs| namespace.  As an
+example:
+
+.. __: https://setuptools.readthedocs.io/en/latest/history.html#v31-0-0
 
 .. code:: python
 
@@ -218,7 +239,8 @@ is an example run:
 If this behavior (and workaround) is undesirable, please ensure the
 installation of all |calmjs| related packages follow the same method
 (i.e. either ``python setup.py develop`` for all packages, or using the
-wheels acquired through ``pip``).
+wheels acquired through ``pip``), or upgrade ``setuptools`` to version
+31 or greater and reinstall all affected packages.
 
 Testing the installation
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -240,9 +262,9 @@ shells this may be executed instead from within that directory:
     $ CALMJS_TEST_ENV=. python -m unittest calmjs.webpack.tests.make_suite
 
 Do note that if the |calmjs.dev| package is unavailable, a number of
-tests will be skipped.  To avoid this, either install that package
-separately, or install |calmjs.webpack| using its extras dependencies
-declaration like so (XXX only when released):
+tests relating to integration with ``karma`` will be skipped.  To avoid
+this, either install |calmjs.dev| manually, or install |calmjs.webpack|
+using its extras dependencies declaration like so:
 
 .. code:: sh
 
@@ -259,11 +281,17 @@ command:
 
 .. code:: sh
 
-    $ calmjs webpack some.package
+    $ calmjs webpack example.package
 
-For further information about the inner workings of the registry system,
-please refer to the README provided by the |calmjs|_ package, under the
-section "Export JavaScript code from Python packages"
+The following sections in this document will provide an overview on how
+to enable the JavaScript module export feature for a given Python
+package through the Calmjs module registry system, however a more
+thorough description on this topic may be found in the README provided
+by the |calmjs|_ package, under the section `Export JavaScript code from
+Python packages`__.
+
+.. __: https://pypi.python.org/pypi/calmjs/#export-javascript-code-from-python-packages
+
 
 Declaring JavaScript exports for Python
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -304,7 +332,8 @@ to be used.
 If the package at hand does not directly declare its dependency on
 |calmjs|, an explicit ``calmjs_module_registry=['calmjs.module']`` may
 need to be declared in the ``setup`` function for the package to ensure
-that this source registry will be used to acquire the source from.
+that this default module registry will be used to acquire the JavaScript
+sources from.
 
 Putting this together, the ``setup.py`` file should contain the
 following:
@@ -315,11 +344,27 @@ following:
         name='example',
         # ... plus other declarations
         # this is recommended
+        license='gpl',
         install_requires=[
-            'calmjs>=3.0.0',
+            'calmjs>=3.0.0,<4',
+            'calmjs.webpack>=1.0.0,<2',
+            # plus other installation requirements
         ],
-        # if the above is omitted, ensure this is included
+        # if the above is omitted or if the GPL license is not desired
+        # for the project, the following should be included instead.
+        package_json={
+            "devDependencies": {
+                "webpack": "~2.6.0",
+            }
+        },
         calmjs_module_registry=['calmjs.module'],
+        # the entry points are required to allow calmjs to pick this up
+        entry_points="""
+        [calmjs.module]
+        example = example
+        example.lib = example.lib
+        example.app = example.app
+        """,
     )
 
 For the construction of the webpack artifact for the example package, it
@@ -358,8 +403,8 @@ the usage of the ``jquery`` and ``underscore`` modules like so:
         _ = require('underscore');
 
 It will need to declare the target location sourced from |npm| plus the
-package_json for the dependencies, it will need to declare this in its
-``setup.py``:
+``package_json`` for the dependencies, it will need to declare this in
+its ``setup.py``:
 
 .. code:: Python
 
@@ -369,6 +414,9 @@ package_json for the dependencies, it will need to declare this in its
             "dependencies": {
                 "jquery": "~3.1.0",
                 "underscore": "~1.8.0",
+            },
+            "devDependencies": {
+                # development dependencies from npm
             },
         },
         extras_calmjs = {
@@ -413,6 +461,69 @@ The resulting calmjs run may then end up looking something like this:
            cjs require example/app/index [4] /tmp/tmposbsof05/build/__calmjs_loader__.js 6:25-53
         + 1 hidden modules
 
+Trigger test execution as part of webpack artifact building process
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For testing, declare the appropriate entries to the module test registry
+that accompanies the module registry for the given package, and with the
+use of the |karma| runtime provided by the ``calmjs.dev`` package, the
+tests may be executed as part of the webpack artifact build process.
+The command is simply this:
+
+.. code:: sh
+
+    $ calmjs karma webpack example
+
+Do note that both the ``devDependencies`` provided by both
+``calmjs.dev`` and ``calmjs.webpack`` must be installed.  This can
+easily be done by declaring the appropriate ``install_requires``, or
+manually install ``calmjs.dev`` and then install the dependencies from
+|npm| using ``calmjs npm -D --install calmjs.webpack[dev]``.
+
+Dynamic module imports
+~~~~~~~~~~~~~~~~~~~~~~
+
+While |webpack| does natively support this to some extent, the support
+is only implemented through direct filesystem level support.  In the
+case of Calmjs, where the imports are done using identifiers on the
+aliases explicitly defined in generated ``webpack.conf.js``
+configuration, |webpack| is unable to resolve those aliases by default.
+
+Instead of trying to make ``ContextReplacementPlugin`` work or writing
+another webpack plugin, a surrogate ``__calmjs__`` import module is
+automatically generated and included in each generated artifact such
+that the dynamic imports will function as intended.  The rationale for
+using this as a workaround is simply a desire to avoid possible API
+changes to |webpack| as plugins of these nature will end up being
+tightly coupled to |webpack|.
+
+With the usage of a surrogate import module, the dynamic imports also
+work across multiple |webpack| artifacts generated through ``calmjs
+webpack``, however this is an advanced topic thus further documentation
+will be required, as specific declaration/import order and various other
+caveats exists that complicates real world usage (e.g. correct handling
+of circular imports will always remain a non-trivial problem).
+
+For the simple case, imagine the following JavaScript code:
+
+.. code:: JavaScript
+
+    var loader = function(module_name) {
+        // the dynamic import
+        var module = require(module_name);
+        console.log(module + ' was loaded dynamically.');
+    };
+
+    var demo = loader('example/lib/core');
+
+If the ``example/lib/core.js`` source file was exported by ``example``
+package and was included in the webpack, the above dynamic import should
+function without issues at all by default without further configuration.
+
+If this dynamic import module functionality is unwanted and that no
+dynamic imports are used by any JavaScript code to be included, this
+feature may be disabled by the ``--disable-calmjs-compat`` flag.
+
 Handling of Webpack loaders
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -437,12 +548,49 @@ sources, the default loaderplugin handler registry will provide a
 standard handler that will process this, provided the loader package is
 available along with webpack on the working Node.js environment.
 
+Testing standalone, finalized webpack artifacts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Webpack artifacts generated using the standard ``calmjs webpack``
+toolchain runtime may be tested using the ``calmjs karma`` runtime
+provided by the ``calmjs.dev`` package.  Given a finalized
+``example.webpack.js`` that implements the features provided by the
+``example`` package, the artifact may be tested with the tests provided
+by the ``example`` package using the following command:
+
+.. code:: sh
+
+    $ calmjs karma run \
+        -t calmjs.webpack \
+        --artifact=example.webpack.js \
+        example
+
+The above command invokes the standalone Karma runner using the
+``calmjs.webpack`` settings to test against the ``example.webpack.js``
+artifact file, using the tests provided by the ``example`` package.  The
+test execution is similar to the one during the development process.
+
 
 Troubleshooting
 ---------------
 
 The following are some known issues with regards to this package and its
 integration with other Python/Node.js packages.
+
+CRITICAL calmjs.runtime WebpackExitError: webpack terminated
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This can be caused by a variety of reasons; it can be due to invalid
+syntax in the provided JavaScript code, or that the configuration not
+containing enough information for |webpack| to correctly execute, or
+that specific ``calmjs webpack`` flags have been enabled in a way that
+is incompatible with |webpack|.  To extract further information about
+the error, the same |calmjs| command may be executed once more with the
+``--verbose`` and/or ``--debug`` flag enabled for extra log message
+which may reveal further information about the nature of the error, or
+that the full traceback may provide further information.  Detailed
+information must be included for the filing of bug reports on the
+`issue tracker`_.
 
 UserWarning: Unknown distribution option:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -453,9 +601,21 @@ generated by running ``python setup.py egg_info`` in the source
 directory, as the package |calmjs| was not available when the setup
 script was initially executed.
 
+WARNING could not locate 'package.json' for the npm package '???-loader'
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The warning message is triggered when there was an attempt to use a
+webpack loader without the appropriate loader module installed into the
+working Node.js environment.  As a quick workaround to the webpack
+artifact build issue, the missing package installation command may be
+attempted, however the correct solution is for that package to declare
+the correct loader package as the dependency in ``package_json``.
+
 
 Contribute
 ----------
+
+.. _issue tracker:
 
 - Issue Tracker: https://github.com/calmjs/calmjs.webpack/issues
 - Source Code: https://github.com/calmjs/calmjs.webpack

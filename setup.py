@@ -1,19 +1,34 @@
 from setuptools import setup, find_packages
 
-version = '0.0'
+version = '1.0.0'
 
 classifiers = """
-Development Status :: 3 - Alpha
+Development Status :: 5 - Production/Stable
+Environment :: Console
+Environment :: Plugins
+Framework :: Setuptools Plugin
 Intended Audience :: Developers
 License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
+Operating System :: MacOS :: MacOS X
+Operating System :: Microsoft :: Windows
+Operating System :: POSIX
+Operating System :: POSIX :: BSD
+Operating System :: POSIX :: Linux
 Operating System :: OS Independent
 Programming Language :: JavaScript
+Programming Language :: Python
+Programming Language :: Python :: 2
 Programming Language :: Python :: 2.7
+Programming Language :: Python :: 3
 Programming Language :: Python :: 3.3
 Programming Language :: Python :: 3.4
 Programming Language :: Python :: 3.5
 Programming Language :: Python :: 3.6
+Programming Language :: Python :: Implementation :: CPython
+Programming Language :: Python :: Implementation :: PyPy
 Topic :: Software Development :: Build Tools
+Topic :: System :: Software Distribution
+Topic :: Utilities
 """.strip().splitlines()
 
 package_json = {
@@ -59,7 +74,7 @@ setup(
     ],
     extras_require={
         'dev': [
-            'calmjs.dev>=1.0.2,<2',
+            'calmjs.dev>=2.0.0,<3',
         ],
     },
     entry_points={

@@ -13,3 +13,9 @@ Changelog
   hooks so that this package can be used as an advice package for the
   execution of tests against artifacts generated through this package,
   through the usage of ``calmjs karma webpack``.
+- Support for prebuilt artifacts for packages is provided through
+  ``calmjs.artifacts`` registry; default complete builders for both
+  building and testing are available via the ``calmjs.webpack.artifact``
+  module.
+- Webpack is pinned to ~2.6.0, as that is the current stable version
+  that is verified to work with building and testing of artifacts.
