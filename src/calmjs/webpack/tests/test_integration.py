@@ -1090,6 +1090,87 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(stderr, '')
         self.assertEqual(stdout, '2\n4\n')
 
+    def test_runtime_example_package_disable_calmjs_compat(self):
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+                '--disable-calmjs-compat',
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+        with codecs.open(export_target, encoding='utf8') as fd:
+            self.assertIn('webpackUniversalModuleDefinition', fd.read())
+            self.assertNotIn('__calmjs_loader__', fd.read())
+            self.assertNotIn('__calmjs__', fd.read())
+
+        # this will definitely not work
+        stdout, stderr = run_webpack("""
+        var calmjs = window.__calmjs__;
+        var main = calmjs.require("example/package/main");
+        main.main();
+        """, export_target)
+        self.assertNotEqual(stderr, '')
+        self.assertNotEqual(stdout, '2\n4\n')
+
+        # however, the typical webpack usage may work like so:
+        stdout, stderr = node(dedent("""
+        var pkg = require('" + export_target + "');
+        pkg['modules']['example/package/main'].main();
+        """))
+        self.assertNotEqual(stderr, '')
+        self.assertNotEqual(stdout, '2\n4\n')
+
+    def test_runtime_example_package_manual_webpack_entry(self):
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+                '--webpack-entry-point', 'example/package/main',
+                '--disable-calmjs-compat',
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+        with codecs.open(export_target, encoding='utf8') as fd:
+            self.assertIn('webpackUniversalModuleDefinition', fd.read())
+            self.assertNotIn('__calmjs_loader__', fd.read())
+            self.assertNotIn('__calmjs__', fd.read())
+
+        # similar to above, however there are even less layers, and only
+        # the specific module (example/package/main) was included.
+        stdout, stderr = node(dedent("""
+        var main = require('" + export_target + "');
+        main.main();
+        """))
+        self.assertNotEqual(stderr, '')
+        self.assertNotEqual(stdout, '2\n4\n')
+
+    def test_runtime_example_package_manual_webpack_entry_bad(self):
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_package.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.package',
+                '--export-target=' + export_target,
+                '--webpack-entry-point', 'example/package/notfound',
+                '--disable-calmjs-compat',
+            ])
+        self.assertNotEqual(e.exception.args[0], 0)
+        self.assertFalse(exists(export_target))
+        self.assertIn(
+            "'example/package/notfound' not found in the source alias map",
+            sys.stderr.getvalue(),
+        )
+
     def test_runtime_example_package_minimized(self):
         utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)

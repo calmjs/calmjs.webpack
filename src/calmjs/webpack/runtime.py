@@ -4,8 +4,12 @@ The calmjs runtime collection
 """
 
 from argparse import SUPPRESS
+from calmjs.argparse import metavar
 from calmjs.runtime import SourcePackageToolchainRuntime
 
+from calmjs.webpack.base import CALMJS_COMPAT
+from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
+from calmjs.webpack.base import WEBPACK_ENTRY_POINT
 from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
 from calmjs.webpack.base import VERIFY_IMPORTS
 from calmjs.webpack.dist import extras_calmjs_methods
@@ -25,7 +29,8 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
     """
 
     def __init__(
-            self, toolchain, description='webpack bundler tool', *a, **kw):
+            self, toolchain, description='calmjs webpack bundler tool',
+            *a, **kw):
         super(WebpackRuntime, self).__init__(
             cli_driver=toolchain, description=description, *a, **kw)
 
@@ -61,6 +66,10 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
         subparser into here to collect the arguments here for a
         subcommand.
         """
+
+        # applying the advanced options so they come before the global
+        # options
+        self.init_argparser_advanced_options(argparser)
 
         super(WebpackRuntime, self).init_argparser(argparser)
 
@@ -109,6 +118,33 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             dest=VERIFY_IMPORTS, help=SUPPRESS,
         )
 
+    def init_argparser_advanced_options(self, argparser):
+        """
+        Advanced calmjs webpack specific options.
+        """
+
+        advanced_options = argparser.add_argument_group(
+            'advanced optional arguments')
+
+        advanced_options.add_argument(
+            '--disable-calmjs-compat', action='store_false',
+            dest=CALMJS_COMPAT, default=True,
+            help="disable calmjs compatibility; i.e. don't include the "
+                 "surrogate import loader module; disables support for "
+                 "dynamic imports",
+        )
+
+        advanced_options.add_argument(
+            '--webpack-entry-point', action='store',
+            dest=WEBPACK_ENTRY_POINT, default=DEFAULT_BOOTSTRAP_EXPORT,
+            metavar=metavar('module_alias'),
+            help="explicitly specify the webpack entry point; only has effect "
+                 "if --disable-calmjs-compat was specified and the provided "
+                 "value must be aliased and available in the resulting "
+                 "artifact; defaults to the calmjs generated module that "
+                 "contains all discovered JavaScript modules",
+        )
+
     def create_spec(
             self, source_package_names=(), export_target=None,
             working_dir=None,
@@ -116,6 +152,8 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             calmjs_module_registry_names=None,
             source_registry_method='all',
             sourcepath_method='all', bundlepath_method='all',
+            calmjs_compat=True,
+            webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
             webpack_optimize_minimize=False,
             verify_imports=True,
             toolchain=None, **kwargs):
@@ -135,6 +173,8 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
             source_registries=calmjs_module_registry_names,
             sourcepath_method=sourcepath_method,
             bundlepath_method=bundlepath_method,
+            calmjs_compat=calmjs_compat,
+            webpack_entry_point=webpack_entry_point,
             webpack_optimize_minimize=webpack_optimize_minimize,
             verify_imports=verify_imports,
         )

@@ -7,6 +7,8 @@ from __future__ import unicode_literals
 
 # keys
 
+# enable calmjs compatibility - i.e. the dynamic import feature
+CALMJS_COMPAT = 'calmjs_compat'
 # The spec key for storing the base webpack configuration.
 WEBPACK_CONFIG = 'webpack_config'
 # The key for the webpack.output.library

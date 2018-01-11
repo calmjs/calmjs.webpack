@@ -18,6 +18,7 @@ from os.path import isdir
 from os.path import pathsep
 from subprocess import call
 
+from calmjs.types.exceptions import ToolchainAbort
 from calmjs.toolchain import ES5Toolchain
 from calmjs.toolchain import ToolchainSpecCompileEntry
 from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
@@ -28,6 +29,7 @@ from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import TOOLCHAIN_BIN_PATH
 from calmjs.toolchain import toolchain_spec_prepare_loaderplugins
 from calmjs.interrogate import yield_module_imports
+from calmjs.utils import json_dumps
 
 from calmjs.parse.parsers.es5 import parse
 from calmjs.parse import io
@@ -308,7 +310,7 @@ class WebpackToolchain(ES5Toolchain):
         plugins = list(_WEBPACK_CONFIG_PLUGINS)
         if spec.get(WEBPACK_OPTIMIZE_MINIMIZE):
             plugins.append('new webpack.optimize.UglifyJsPlugin({})')
-        config_dump = json.dumps(webpack_config, indent=4)
+        config_dump = json_dumps(webpack_config)
         plugins_dump = ',\n    '.join(plugins)
         with codecs.open(
                 spec['webpack_config_js'], 'w', encoding='utf8') as fd:
@@ -477,7 +479,16 @@ class WebpackToolchain(ES5Toolchain):
             # need to manually resolve the entry
             # if externals has been defined, use the complete lookup module
             # otherwise, use the simplified version.
-            webpack_config['entry'] = source_alias[spec[WEBPACK_ENTRY_POINT]]
+            wp_ep = spec[WEBPACK_ENTRY_POINT]
+            if wp_ep not in source_alias:
+                msg = "'%s' not found in the source alias map" % wp_ep
+                logger.error(msg)
+                logger.info(
+                    'source alias map {alias: targetpath}: %s',
+                    json_dumps(source_alias),
+                )
+                raise ToolchainAbort(msg)
+            webpack_config['entry'] = source_alias[wp_ep]
 
         # merge all aliases for writing of configuration file
         alias.update(source_alias)
