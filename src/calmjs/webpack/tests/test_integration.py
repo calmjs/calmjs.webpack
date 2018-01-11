@@ -30,6 +30,7 @@ from calmjs.webpack import toolchain
 from calmjs.webpack import cli
 from calmjs.webpack import exc
 from calmjs.webpack import interrogation
+from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
 
 from calmjs.testing import utils
 from calmjs.testing.mocks import StringIO
@@ -1303,6 +1304,13 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
             return
 
         cls._cwd = os.getcwd()
+
+        # preloading the webpack loaderplugin registry before the full
+        # integration harness stubs out the root distribution, disabling
+        # the entry point for this registry - do note that it will be
+        # better to manually set this up where it is applicable.
+        get_registry(CALMJS_WEBPACK_LOADERPLUGINS)
+
         utils.setup_class_install_environment(
             cls, Driver, ['calmjs.webpack', 'calmjs.dev'], production=False)
 
@@ -1329,7 +1337,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.rmtree(cls._cls_tmpdir)
 
     def test_karma_test_runner_basic(self):
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         with self.assertRaises(SystemExit) as e:
@@ -1341,7 +1349,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertTrue(exists(export_target))
 
     def test_karma_test_runner_coverage(self):
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
@@ -1367,7 +1375,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(expected, set(coverage.keys()))
 
     def test_karma_test_runner_coverage_covertests(self):
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
@@ -1394,7 +1402,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(expected, set(coverage.keys()))
 
     def test_karma_test_runner_dynamic_import_in_tests(self):
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_extras.js')
         with self.assertRaises(SystemExit) as e:
@@ -1406,7 +1414,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertTrue(exists(export_target))
 
     def test_karma_test_runner_dynamic_import_in_tests_coverage(self):
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_extras.js')
@@ -1441,7 +1449,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         anywhere, against anything?
         """
 
-        # utils.stub_stdouts(self)
+        utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         # first, generate our bundle.
@@ -1464,6 +1472,30 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
                 '--toolchain-package', 'calmjs.webpack',
             ])
         # tests should pass against the resultant bundle
+        self.assertEqual(e.exception.args[0], 0)
+
+    def test_karma_test_runner_dynamic_import_in_tests_for_artifacts(self):
+        # likewise for above, except this time there is a dynamic
+        # import
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_extras.js')
+        # build the artifact first
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.extras',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+
+        # use karma run to verify that the standalone test works.
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', 'run',
+                '--artifact=' + export_target,
+                '-t', 'calmjs.webpack',
+                'example.extras',
+            ])
         self.assertEqual(e.exception.args[0], 0)
 
     def test_calmjs_artifact_test_verification(self):

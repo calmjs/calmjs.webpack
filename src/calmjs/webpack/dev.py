@@ -20,6 +20,7 @@ from calmjs.toolchain import ARTIFACT_PATHS
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import TEST_MODULE_PATHS_MAP
 from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
+from calmjs.toolchain import spec_update_loaderplugin_registry
 from calmjs.toolchain import toolchain_spec_prepare_loaderplugins
 from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
 from calmjs.toolchain import process_compile_entries
@@ -325,7 +326,13 @@ def karma_webpack(spec, toolchain=None):
         }
         config['webpack'] = webpack_config
     else:
-        externals = {}
+        # ensure that the loader plugin registry is assigned.
+        spec_update_loaderplugin_registry(
+            spec, toolchain.loaderplugin_registry)
+        # with the assumption that the __calmjs_loader__ is available at
+        # that specific location - as standard standalone webpack has no
+        # visible external interfaces like this.
+        externals = {"__calmjs_loader__": {"root": ["__calmjs__"]}}
         for p in spec.get(ARTIFACT_PATHS, ()):
             logger.debug('processing artifact file %r', p)
             with codecs.open(p, encoding='utf8') as fd:
