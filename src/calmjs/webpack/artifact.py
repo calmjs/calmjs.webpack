@@ -8,7 +8,6 @@ from calmjs.toolchain import SETUP
 from calmjs.webpack.cli import create_spec
 from calmjs.webpack.cli import default_toolchain
 
-from calmjs.dev.toolchain import KarmaToolchain
 from calmjs.webpack.dev import webpack_advice
 
 
@@ -26,6 +25,9 @@ def test_complete_webpack(package_names, export_target):
     """
     Accompanied testing entry point for the complete_webpack artifact.
     """
+
+    # importing in here as calmjs.dev is an optional dependency.
+    from calmjs.dev.toolchain import KarmaToolchain
 
     spec = Spec(
         export_target=export_target,

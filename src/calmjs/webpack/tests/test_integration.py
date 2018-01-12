@@ -124,6 +124,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
                 self._env_root, 'node_modules'))
 
     def tearDown(self):
+        # remove registries that got polluted with test data
+        from calmjs.registry import _inst as root_registry
+        root_registry.records.pop('calmjs.artifacts', None)
         # As the manipulation is done, should set this back to its
         # default state.
         cli.default_toolchain.env_path = None
@@ -1335,6 +1338,12 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.teardown_class_integration_environment(cls)
         os.chdir(cls._cwd)
         utils.rmtree(cls._cls_tmpdir)
+
+    def tearDown(self):
+        # remove registries that got polluted with test data
+        from calmjs.registry import _inst as root_registry
+        root_registry.records.pop('calmjs.artifacts', None)
+        root_registry.records.pop('calmjs.artifacts.tests', None)
 
     def test_karma_test_runner_basic(self):
         utils.stub_stdouts(self)
