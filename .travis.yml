@@ -32,15 +32,15 @@ matrix:
       env: TRAVIS_NODE_VERSION=6.12
     # test different versions of Node.js on osx
     - language: node_js
-      node_js: 4.6
+      node_js: 4.8
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.4.5
     - language: node_js
-      node_js: 6.9
+      node_js: 6.12
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.5.3
     - language: node_js
-      node_js: 7.4
+      node_js: 8.9
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.6.0
 
@@ -72,10 +72,14 @@ install:
   # to avoid the failure conditions with using the setup.py scripts that
   # occur on various platforms and configurations.  The -U flag is also
   # used to ensure setuptools is updated.
-  - pip install -U calmjs calmjs.dev
+  - pip install -U calmjs
   - python setup.py develop
 script:
   - flake8 setup.py src
+  # run the first test without calmjs.dev.
+  - python -m unittest calmjs.webpack.tests.make_suite
+  # run the real test with all optional dependencies.
+  - pip install calmjs.dev
   - coverage run --include=src/* -m unittest calmjs.webpack.tests.make_suite
   - coverage report -m
 after_success:

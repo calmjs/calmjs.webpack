@@ -18,10 +18,14 @@ install:
   - virtualenv --clear venv
   - "venv\\Scripts\\activate.bat"
   - pip install coverage
-  - pip install -U calmjs calmjs.dev
+  - pip install -U calmjs
   - python setup.py develop
 
 test_script:
+  # verify tests working without optional dependencies
+  - python -m unittest calmjs.webpack.tests.make_suite
+  # run the full test suite using all optional dependencies
+  - pip install calmjs.dev
   - coverage run --include=src/* -m unittest calmjs.webpack.tests.make_suite
   - coverage report -m
 
