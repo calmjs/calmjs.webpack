@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.0.0 (unreleased)
+1.0.0 (2018-01-12)
 ------------------
 
 - Initial implementation of the Calmjs integration tool that enable the
