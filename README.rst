@@ -7,12 +7,12 @@ JavaScript source code provided by Python packages in conjunction with
 standard JavaScript or `Node.js`_
 similar package repositories.
 
-.. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=1.0.x
+.. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=1.0.0
     :target: https://travis-ci.org/calmjs/calmjs.webpack
-.. image:: https://ci.appveyor.com/api/projects/status/327fghy5uhnhplf5/branch/1.0.x?svg=true
-    :target: https://ci.appveyor.com/project/metatoaster/calmjs-webpack/branch/1.0.x
-.. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=1.0.x
-    :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=1.0.x
+.. image:: https://ci.appveyor.com/api/projects/status/327fghy5uhnhplf5/branch/1.0.0?svg=true
+    :target: https://ci.appveyor.com/project/metatoaster/calmjs-webpack/branch/1.0.0
+.. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=1.0.0
+    :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=1.0.0
 
 .. |AMD| replace:: AMD (Asynchronous Module Definition)
 .. |calmjs| replace:: ``calmjs``
