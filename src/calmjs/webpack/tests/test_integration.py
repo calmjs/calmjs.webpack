@@ -503,7 +503,8 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         with pretty_logging(stream=StringIO()):
             spec = cli.create_spec(
                 ['site'], source_registries=(self.registry_name,))
-        self.assertEqual(spec['export_target'], 'site.js')
+        self.assertEqual(
+            spec['export_target'], join(self._env_root, 'site.js'))
 
     def test_cli_compile_all_site(self):
         # create a new working directory to install our current site

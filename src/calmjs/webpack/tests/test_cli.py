@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import unittest
+import os
+from os.path import join
 
 from calmjs.toolchain import Spec
 from calmjs.utils import pretty_logging
@@ -8,6 +10,8 @@ from calmjs.webpack.cli import create_spec
 from calmjs.webpack.cli import compile_all
 
 from calmjs.testing.mocks import StringIO
+from calmjs.testing.utils import remember_cwd
+from calmjs.testing.utils import mkdtemp
 
 
 class CliTestCase(unittest.TestCase):
@@ -15,6 +19,11 @@ class CliTestCase(unittest.TestCase):
     Test mostly basic implementation, most of the core test will be done
     in the toolchain and/or the integration tests.
     """
+
+    def setUp(self):
+        remember_cwd(self)
+        self.cwd = mkdtemp(self)
+        os.chdir(self.cwd)
 
     def test_create_spec_empty(self):
         with pretty_logging(stream=StringIO()) as stream:
@@ -27,7 +36,9 @@ class CliTestCase(unittest.TestCase):
             "'__calmjs__'", stream.getvalue()
         )
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.export.js')
+        self.assertEqual(spec['working_dir'], self.cwd)
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.export.js'))
         self.assertEqual(spec['calmjs_module_registry_names'], [])
         self.assertIn('webpack_externals', spec)
         self.assertEqual(spec['webpack_output_library'], '__calmjs__')
@@ -74,7 +85,8 @@ class CliTestCase(unittest.TestCase):
         with pretty_logging(stream=StringIO()) as stream:
             spec = create_spec(['calmjs.webpack'])
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.js'))
         self.assertEqual(spec.get('webpack_entry_point'), '__calmjs__')
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module'])
@@ -87,11 +99,38 @@ class CliTestCase(unittest.TestCase):
             "sourcepaths", log,
         )
 
+    def test_create_spec_with_calmjs_webpack_manual_working_dir(self):
+        working_dir = mkdtemp(self)
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'],
+                working_dir=working_dir
+            )
+
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertEqual(spec['export_target'], join(
+            working_dir, 'calmjs.webpack.js'))
+        log = stream.getvalue()
+        self.assertIn("'export_target' autoconfig to", log)
+
+    def test_create_spec_with_calmjs_webpack_manual_export_target(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'],
+                export_target='somewhere.js',
+            )
+
+        self.assertTrue(isinstance(spec, Spec))
+        self.assertEqual(spec['export_target'], 'somewhere.js')
+        log = stream.getvalue()
+        self.assertNotIn("'export_target' autoconfig to", log)
+
     def test_create_spec_with_calmjs_webpack_entry_point_only(self):
         with pretty_logging(stream=StringIO()) as stream:
             spec = create_spec(['calmjs.webpack'], webpack_entry_point='entry')
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.js'))
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module'])
         self.assertEqual(
@@ -120,7 +159,8 @@ class CliTestCase(unittest.TestCase):
         with pretty_logging(stream=StringIO()) as stream:
             spec = create_spec(['calmjs.webpack'], calmjs_compat=False)
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.js'))
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module'])
         self.assertEqual(
@@ -140,7 +180,8 @@ class CliTestCase(unittest.TestCase):
             spec = create_spec(
                 ['calmjs.webpack'], source_registry_method='none')
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.js'))
         self.assertEqual(
             spec['calmjs_module_registry_names'], [])
         self.assertEqual(
@@ -157,7 +198,8 @@ class CliTestCase(unittest.TestCase):
             spec = create_spec(
                 ['calmjs.webpack'], source_registries=['calmjs.module.tests'])
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.js'))
         self.assertEqual(
             spec['calmjs_module_registry_names'], ['calmjs.module.tests'])
         self.assertEqual(
@@ -222,6 +264,28 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(spec['webpack_entry_point'], 'custom_entry')
         self.assertNotIn('webpack_output_library', spec)
 
+    def test_create_spec_with_calmjs_webpack_output_library_enabled(self):
+        with pretty_logging(stream=StringIO()) as stream:
+            spec = create_spec(
+                ['calmjs.webpack'], calmjs_compat=False,
+                webpack_output_library=True,
+            )
+        log = stream.getvalue()
+        self.assertNotIn(
+            "webpack_entry_point is ignored; set calmjs_compat to false "
+            "to enable manual webpack.entry specification", log
+        )
+        self.assertNotIn(
+            "webpack.output.library is disabled; it will be unset.", log)
+        self.assertIn(
+            "calmjs_compat is disabled; webpack.output.library "
+            "automatically set to 'calmjs.webpack', derived from input "
+            "package names and export filename", log
+        )
+        # note that this is probably an invalid value.
+        self.assertEqual(spec['webpack_entry_point'], '__calmjs__')
+        self.assertEqual(spec['webpack_output_library'], 'calmjs.webpack')
+
     def test_toolchain_empty(self):
         # dict works well enough as a null toolchain
         with pretty_logging(stream=StringIO()) as stream:
@@ -230,4 +294,5 @@ class CliTestCase(unittest.TestCase):
         self.assertNotIn('packages []', stream.getvalue())
         self.assertIn('no packages specified', stream.getvalue())
         self.assertTrue(isinstance(spec, Spec))
-        self.assertEqual(spec['export_target'], 'calmjs.webpack.export.js')
+        self.assertEqual(spec['export_target'], join(
+            self.cwd, 'calmjs.webpack.export.js'))
