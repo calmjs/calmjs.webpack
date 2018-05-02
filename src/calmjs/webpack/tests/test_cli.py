@@ -111,7 +111,7 @@ class CliTestCase(unittest.TestCase):
         self.assertEqual(spec['export_target'], join(
             working_dir, 'calmjs.webpack.js'))
         log = stream.getvalue()
-        self.assertIn("'export_target' autoconfig to", log)
+        self.assertIn("'export_target' is now set to", log)
 
     def test_create_spec_with_calmjs_webpack_manual_export_target(self):
         with pretty_logging(stream=StringIO()) as stream:

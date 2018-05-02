@@ -764,8 +764,10 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
             'defaults to last ${package_name}.js ', out)
         self.assertIn(
             '--working-dir <working_dir> the working directory; '
-            'for this tool it will be used as the base directory to '
-            'find source files declared for bundling; ', out)
+            'for this tool it will be used as the base directory for '
+            'locating the node_modules for the declared bundled source '
+            'files, and as the base directory for export_target and '
+            'build_dir paths; ', out)
         self.assertIn('default is current working directory', out)
 
     def test_runtime_cli_compile_explicit_missing(self):

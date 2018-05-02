@@ -5,6 +5,7 @@ calmjs webpack cli tools.
 
 import logging
 from os.path import join
+from os.path import realpath
 
 from calmjs.toolchain import Spec
 from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
@@ -205,8 +206,9 @@ def create_spec(
             computed_output_library = package_names[-1]
         else:
             computed_output_library = 'calmjs.webpack.export'
-        export_target = join(working_dir, computed_output_library + '.js')
-        logger.debug("'export_target' autoconfig to '%s'", export_target)
+        export_target = realpath(
+            join(working_dir, computed_output_library + '.js'))
+        logger.info("'export_target' is now set to '%s'", export_target)
     else:
         computed_output_library = export_target[:-3]
 
