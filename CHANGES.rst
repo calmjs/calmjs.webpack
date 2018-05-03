@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.0.1 (Unreleased)
+------------------
+
+- Update the export_target production and usage of working_dir to be
+  inline with what is expected by ``calmjs-3.1.0``. [
+  `#2 <https://github.com/calmjs/calmjs.webpack/issues/2>`_
+  ]
+
 1.0.0 (2018-01-12)
 ------------------
 

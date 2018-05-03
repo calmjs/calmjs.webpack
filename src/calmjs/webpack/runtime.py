@@ -44,8 +44,10 @@ class WebpackRuntime(SourcePackageToolchainRuntime):
         super(WebpackRuntime, self).init_argparser_working_dir(
             argparser,
             explanation=(
-                'for this tool it will be used as the base directory to '
-                'find source files declared for bundling; '
+                'for this tool it will be used as the base directory for '
+                'locating the node_modules for the declared bundled source '
+                'files, and as the base directory for export_target and '
+                'build_dir paths; '
             ),
         )
 

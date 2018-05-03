@@ -4,6 +4,8 @@ calmjs webpack cli tools.
 """
 
 import logging
+from os.path import join
+from os.path import realpath
 
 from calmjs.toolchain import Spec
 from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
@@ -11,6 +13,7 @@ from calmjs.toolchain import spec_update_sourcepath_filter_loaderplugins
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import CALMJS_MODULE_REGISTRY_NAMES
 from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY_NAME
+from calmjs.toolchain import WORKING_DIR
 
 from calmjs.toolchain import EXPORT_TARGET
 from calmjs.toolchain import GENERATE_SOURCE_MAP
@@ -194,13 +197,20 @@ def create_spec(
 
     working_dir = working_dir if working_dir else default_toolchain.join_cwd()
 
+    # Normalize export_target and raw webpack.output.library
+    # Note that webpack_output_library is not directly assigned at this
+    # moment.
     if export_target is None:
         # Take the final package name for now...
         if package_names:
-            export_target = package_names[-1] + '.js'
+            computed_output_library = package_names[-1]
         else:
-            export_target = 'calmjs.webpack.export.js'
-        logger.debug("'export_target' autoconfig to '%s'", export_target)
+            computed_output_library = 'calmjs.webpack.export'
+        export_target = realpath(
+            join(working_dir, computed_output_library + '.js'))
+        logger.info("'export_target' is now set to '%s'", export_target)
+    else:
+        computed_output_library = export_target[:-3]
 
     spec = Spec()
 
@@ -227,6 +237,7 @@ def create_spec(
         )
 
     spec[BUILD_DIR] = build_dir
+    spec[WORKING_DIR] = working_dir
     spec[CALMJS_MODULE_REGISTRY_NAMES] = source_registries
     spec[EXPORT_TARGET] = export_target
     spec[SOURCE_PACKAGE_NAMES] = package_names
@@ -283,7 +294,7 @@ def create_spec(
         # currently calmjs_compat mode assumes that it must be "umd".
         if webpack_output_library is True:
             if webpack_entry_point == DEFAULT_BOOTSTRAP_EXPORT:
-                spec[WEBPACK_OUTPUT_LIBRARY] = export_target[:-3]
+                spec[WEBPACK_OUTPUT_LIBRARY] = computed_output_library
                 logger.info(
                     "calmjs_compat is disabled; webpack.output.library "
                     "automatically set to '%s', derived from input package "
@@ -292,6 +303,7 @@ def create_spec(
                     spec[WEBPACK_OUTPUT_LIBRARY]
                 )
             else:
+                # set to entry_point as that is defined.
                 spec[WEBPACK_OUTPUT_LIBRARY] = webpack_entry_point
                 logger.info(
                     "calmjs_compat is disabled; webpack.output.library "
