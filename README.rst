@@ -1,11 +1,12 @@
 calmjs.webpack
 ==============
 
-Package for extending the the `Calmjs framework`_ to support the usage
-of |webpack|_ for the generation of deployable artifacts from
-JavaScript source code provided by Python packages in conjunction with
-standard JavaScript or `Node.js`_
-similar package repositories.
+Provide the integration of |webpack|_ into a Python environment through
+the `Calmjs framework`_ to facilitate the usage of JavaScript sources
+included with Python packages in conjunction with Node.js packages
+sourced from |npm|_ or similar package repositories, for the declaration
+and production of prebuilt JavaScript artifacts with |webpack| in a
+manner that allow reuse and extension by Python packages' dependants.
 
 .. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=1.0.x
     :target: https://travis-ci.org/calmjs/calmjs.webpack
@@ -19,7 +20,7 @@ similar package repositories.
 .. |calmjs.dev| replace:: ``calmjs.dev``
 .. |calmjs.parse| replace:: ``calmjs.parse``
 .. |calmjs.webpack| replace:: ``calmjs.webpack``
-.. |karma| replace:: ``npm``
+.. |karma| replace:: ``karma``
 .. |npm| replace:: ``npm``
 .. |webpack| replace:: ``webpack``
 .. _Calmjs framework: https://pypi.python.org/pypi/calmjs
@@ -38,7 +39,8 @@ ultimately rely on some form of JavaScript.  This is especially true if
 associated functionalities are sourced from `Node.js`_ based package
 management systems such as |npm|_.  However, backend languages that
 offer their own package management system typically lack comprehensive
-integration with |npm| by default.
+integration with |npm|, or integration is tightly coupled with whatever
+framework that is not reusable in a more generalized manner.
 
 A common way to address this issue is that a package may be forced to be
 split into two, or at the very least a completely separate deployment
@@ -94,8 +96,8 @@ compilation target, with the final deployable artifact(s) being produced
 through |webpack| from the |webpack|_ package.
 
 While the input source files made available through Python packages
-could be written in any format as understood by webpack,
-currently only standard ES5 is understood.  The reason for this is that
+could be written in any format as understood by webpack, currently only
+standard ES5 is properly processed.  The reason for this is that
 |calmjs.parse|_, the parser library that |calmjs.webpack| make use for
 the parsing of JavaScript, currently only understand ES5, and is used
 for extracting all the import statements to create the dynamic Calmjs
@@ -141,7 +143,7 @@ although PyPy3-2.4 should work, however there may be difficulties due to
 new versions of dependencies rejecting older versions of Python.
 
 To install |calmjs.webpack| into a given Python environment, it may be
-installed via the git repo through this command:
+installed directly from PyPI with the following command:
 
 .. code:: sh
 
@@ -263,7 +265,7 @@ shells this may be executed instead from within that directory:
     $ CALMJS_TEST_ENV=. python -m unittest calmjs.webpack.tests.make_suite
 
 Do note that if the |calmjs.dev| package is unavailable, a number of
-tests relating to integration with ``karma`` will be skipped.  To avoid
+tests relating to integration with |karma| will be skipped.  To avoid
 this, either install |calmjs.dev| manually, or install |calmjs.webpack|
 using its extras dependencies declaration like so:
 
@@ -294,8 +296,8 @@ Python packages`__.
 .. __: https://pypi.python.org/pypi/calmjs/#export-javascript-code-from-python-packages
 
 
-Declaring JavaScript exports for Python
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Declaring JavaScript exports for the Python package
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 JavaScript code embedded within a Python package can be exposed to the
 Calmjs framework through the ``calmjs.module`` registry.  For example,
@@ -322,8 +324,9 @@ The following is am example for packages that have nested submodules
 While the import locations declared looks exactly like a Python module
 (as per the rules of a Python entry point), the ``calmjs.module``
 registry will present them using the CommonJS/ES6 style import paths
-(i.e.  ``'example/lib'`` and ``'example/app'``), so users of that need
-those JavaScript modules to be sure they ``require`` those strings.
+(i.e.  ``'example/lib'`` and ``'example/app'``).  Thus users that wish
+to import those specific JavaScript modules will then ``require`` the
+required modules prefixed by those strings.
 
 Please also note that the default source extractor will extract all
 JavaScript files within those directories.  Finally, as a consequence of
@@ -586,23 +589,31 @@ specifying an entry in the ``calmjs.artifacts`` registry, with the key
 being the filename of the artifact and the value being the import
 location to a builder.  A default builder function provided at
 ``calmjs.webpack.artifact:complete_webpack`` will enable the generation
-of a complete webpack artifact for the Python package.  For example:
+of a complete webpack artifact for the Python package.  The builder
+``calmjs.webpack.artifact:optimize_webpack`` will do the same, but with
+the optimize options enabled (currently only the minimize output is
+supported).
+
+For example, a configuration that contains both forms might look like
+so:
 
 .. code:: ini
 
     [calmjs.artifacts]
     example.webpack.js = calmjs.webpack.artifact:complete_webpack
+    example.webpack.min.js = calmjs.webpack.artifact:optimize_webpack
 
-Once those entry points are installed, running ``calmjs artifact build
-example.package`` will make use of the webpack toolchain and build the
-artifact at ``example.webpack.js`` inside the ``calmjs_artifacts``
-directory within the metadata directory for ``example.package``.
-Alternatively, for solution more integrated with ``setuptools``, the
-``setup`` function in ``setup.py`` should also enable the
-``build_calmjs_artifacts`` flag such that ``setup.py build`` will also
-trigger the building process.  This is useful for automatically
-generating and including the artifact as part of the wheel building
-process.  Consider this ``setup.py``:
+Once those entry points are added to ``setup.py`` and the package
+metadata is regenerated using ``setup.py egg_info``, running ``calmjs
+artifact build example.package`` will make use of the webpack toolchain
+and build the artifact at ``example.webpack.js`` inside the
+``calmjs_artifacts`` directory within the package metadata directory for
+``example.package``.  Alternatively, for solution more integrated with
+``setuptools``, the ``setup`` function in ``setup.py`` should also
+enable the ``build_calmjs_artifacts`` flag such that ``setup.py build``
+will also trigger the building process.  This is useful for
+automatically generating and including the artifact as part of the wheel
+building process.  Consider this ``setup.py``:
 
 .. code:: Python
 
@@ -617,6 +628,7 @@ process.  Consider this ``setup.py``:
 
         [calmjs.artifacts]
         example.webpack.js = calmjs.webpack.artifact:complete_webpack
+        example.webpack.min.js = calmjs.webpack.artifact:optimize_webpack
         """,
     )
 
@@ -655,6 +667,10 @@ that were declared in ``calmjs.artifacts``.
 
     [calmjs.artifacts.tests]
     example.webpack.js = calmjs.webpack.artifact:test_complete_webpack
+    example.webpack.min.js = calmjs.webpack.artifact:test_complete_webpack
+
+Note that the same ``test_complete_webpack`` test builder will be able
+to test the optimize_webpack artifact also.
 
 
 Troubleshooting

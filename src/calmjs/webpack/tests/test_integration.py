@@ -1287,12 +1287,33 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
     def test_calmjs_artifact_package_generation(self):
         utils.stub_stdouts(self)
+        registry = get_registry('calmjs.artifacts')
+        builders = sorted(
+            registry.iter_builders_for('example.package'),
+            key=lambda builder: str(builder[0])
+        )
+
+        self.assertEqual(2, len(builders))
+
         with self.assertRaises(SystemExit) as e:
             runtime.main(['artifact', 'build', 'example.package'])
+
         self.assertEqual(e.exception.args[0], 0)
-        registry = get_registry('calmjs.artifacts')
-        for e, t, spec in registry.iter_builders_for('example.package'):
+
+        for e, t, spec in builders:
             self.assertTrue(exists(spec['export_target']))
+
+        with open(builders[0][2]['export_target']) as fd:
+            # ex.webpack.js
+            self.assertIn('webpackUniversalModuleDefinition', fd.readline())
+            # there are more lines.
+            self.assertNotEqual('', fd.readline())
+
+        with open(builders[1][2]['export_target']) as fd:
+            # ex.webpack.min.js
+            self.assertNotIn('webpackUniversalModuleDefinition', fd.readline())
+            # assume no source map?  the entire thing is one line
+            self.assertEqual('', fd.readline())
 
 
 @unittest.skipIf(karma is None, 'calmjs.dev or its karma module not available')
