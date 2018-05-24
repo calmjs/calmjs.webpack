@@ -189,8 +189,13 @@ def cls_setup_webpack_example_package(cls):
         ('entry_points.txt', (
             '[calmjs.artifacts]\n'
             'ex.webpack.js = calmjs.webpack.artifact:complete_webpack\n'
+            'ex.webpack.min.js = calmjs.webpack.artifact:optimize_webpack\n'
             '[calmjs.artifacts.tests]\n'
             'ex.webpack.js = calmjs.webpack.artifact:test_complete_webpack\n'
+            # no separate builder for testing optimize_webpack as there
+            # should be no difference.
+            'ex.webpack.min.js = calmjs.webpack.artifact:test_complete_webpack'
+            '\n'
             '[%s]\n'
             'example.package = example.package\n'
             '[%s.tests]\n'
