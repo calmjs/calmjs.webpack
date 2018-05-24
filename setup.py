@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '1.0.2'
+version = '1.0.3'
 
 classifiers = """
 Development Status :: 5 - Production/Stable
