@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.0.2 (Unreleased)
+1.0.2 (2018-05-24)
 ------------------
 
 - Provide a builder that will generate an artifact with the supported
