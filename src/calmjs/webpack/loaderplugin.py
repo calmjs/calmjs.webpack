@@ -13,6 +13,8 @@ from os.path import dirname
 from os.path import exists
 from os.path import join
 
+from calmjs.toolchain import BUILD_DIR
+
 from calmjs.loaderplugin import LoaderPluginRegistry
 from calmjs.loaderplugin import LoaderPluginHandler
 from calmjs.loaderplugin import NPMLoaderPluginHandler
@@ -34,9 +36,12 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
 
     def run(self, toolchain, spec, modname, source, target, modpath):
         stripped_modname = self.unwrap(modname)
-        copy_target = join(spec['build_dir'], target)
+        copy_target = join(spec[BUILD_DIR], target)
         if not exists(dirname(copy_target)):
             makedirs(dirname(copy_target))
+        # TODO make use of spec/toolchain copy manifest/function,
+        # if/when that is implemented for source/dest tracking?
+        # this may be useful to reduce the amount of data moved around.
         shutil.copy(source, copy_target)
 
         modpaths = {modname: modpath}
@@ -53,8 +58,8 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
             # is simply unsustainable importability.
             './' + stripped_modname: target,
         }
-        export_module_names = [modname]
-        return modpaths, targets, export_module_names
+        return modpaths, targets, self.finalize_export_module_names(
+            toolchain, spec, [modname])
 
     def chained_call(
             self, chained,
@@ -70,9 +75,26 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
             self.name + '!' + k: v
             for k, v in inner_modpaths.items()
         }
-        export_module_names = [
-            self.name + '!' + v for v in inner_export_module_names]
-        return modpaths, targets, export_module_names
+        return modpaths, targets, self.finalize_export_module_names(
+                toolchain, spec, inner_export_module_names, self.name)
+
+    def generate_export_module_names(
+            self, toolchain, spec, export_module_names, prefix=''):
+        if prefix:
+            return [prefix + '!' + v for v in export_module_names]
+        return list(export_module_names)
+
+    def finalize_export_module_names(
+            self, toolchain, spec, export_module_names, prefix=''):
+        """
+        The standard method for finalizing the export module names
+        produced for modules that involve the module loader syntax.
+        These are the names that will end up in the generated calmjs
+        export module.
+        """
+
+        return self.generate_export_module_names(
+            toolchain, spec, export_module_names, prefix)
 
     def __call__(self, toolchain, spec, modname, source, target, modpath):
         stripped_modname = self.unwrap(modname)
