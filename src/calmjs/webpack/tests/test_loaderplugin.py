@@ -2,15 +2,22 @@
 import unittest
 from os.path import exists
 from os.path import join
+from pkg_resources import working_set as root_working_set
+from pkg_resources import Requirement
+
+from calmjs.module import ModuleRegistry
 from calmjs.loaderplugin import LoaderPluginRegistry
 from calmjs.webpack import loaderplugin
+from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
+from calmjs.webpack.loaderplugin import WebpackModuleLoaderRegistry
 
 from calmjs.toolchain import Spec
 from calmjs.toolchain import Toolchain
 from calmjs.utils import pretty_logging
 from calmjs.testing.utils import mkdtemp
 from calmjs.testing.mocks import StringIO
+from calmjs.testing.mocks import WorkingSet
 
 
 class AutoRegistryTestCase(unittest.TestCase):
@@ -141,3 +148,45 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
             ['text!css!some.css'], export_module_names)
 
         self.assertTrue(exists(join(spec['build_dir'], 'some.css')))
+
+
+class WebpackModuleLoaderRegistryTestCase(unittest.TestCase):
+
+    def test_module_loader_registry_multiple_loaders(self):
+        working_set = WorkingSet({
+            'calmjs.module': [
+                'module4 = calmjs.testing.module4',
+            ],
+            'calmjs.module.webpackloader': [
+                'style!css = css[css]',
+                'json = json[json]',
+            ],
+            __name__: [
+                'calmjs.module = calmjs.module:ModuleRegistry',
+                'calmjs.module.webpackloader = '
+                'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
+            ]},
+            # use a real distribution instead for this case
+            dist=root_working_set.find(Requirement.parse('calmjs')),
+        )
+
+        registry = ModuleRegistry('calmjs.module', _working_set=working_set)
+        loader_registry = WebpackModuleLoaderRegistry(
+            'calmjs.module.webpackloader',
+            _working_set=working_set, _parent=registry)
+        self.assertEqual({
+            'calmjs': ['calmjs.testing.module4'],
+        }, loader_registry.package_module_map)
+
+        self.assertEqual(
+            ['json', 'style!css'],
+            sorted(loader_registry.get_loaders_for_package('calmjs'))
+        )
+
+        self.assertEqual([
+            WebpackModuleLoaderRegistryKey(
+                loader='json', modname='calmjs/testing/module4/data.json'),
+            WebpackModuleLoaderRegistryKey(
+                loader='style!css',
+                modname='calmjs/testing/module4/other.css'),
+        ], sorted(loader_registry.get_records_for_package('calmjs').keys()))

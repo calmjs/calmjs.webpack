@@ -5,6 +5,8 @@ Base classes and constants.
 
 from __future__ import unicode_literals
 
+from collections import namedtuple
+
 # keys
 
 # enable calmjs compatibility - i.e. the dynamic import feature
@@ -67,3 +69,11 @@ DEFAULT_BOOTSTRAP_EXPORT_CONFIG = {
     "root": DEFAULT_BOOTSTRAP_EXPORT,
     "amd": DEFAULT_BOOTSTRAP_EXPORT,
 }
+
+
+# due to webpack specific requirements, a special type for the key is
+# needed for the WebpackModuleLoaderRegistry such that the correct
+# handling mechanism may be done.
+CALMJS_WEBPACK_MODULE_LOADER_SUFFIX = '.webpackloader'
+WebpackModuleLoaderRegistryKey = namedtuple(
+    'WebpackModuleLoaderRegistryKey', ['loader', 'modname'])

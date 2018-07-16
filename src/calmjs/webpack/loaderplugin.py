@@ -14,6 +14,9 @@ from os.path import exists
 from os.path import join
 
 from calmjs.toolchain import BUILD_DIR
+from calmjs.loaderplugin import ModuleLoaderRegistry
+from calmjs.webpack.base import CALMJS_WEBPACK_MODULE_LOADER_SUFFIX
+from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 
 from calmjs.loaderplugin import LoaderPluginRegistry
 from calmjs.loaderplugin import LoaderPluginHandler
@@ -148,3 +151,20 @@ class AutogenWebpackLoaderPluginRegistry(LoaderPluginRegistry):
             self.__class__.__name__, self.registry_name, plugin_name
         )
         return AutogenWebpackLoaderHandler(self, plugin_name)
+
+
+class WebpackModuleLoaderRegistry(ModuleLoaderRegistry):
+    """
+    This webpack specific version will not include the loader prefixes
+    in the generated names, however it will provide a reverse mapping
+    which should be called to set up the loader chain.
+    """
+
+    def resolve_parent_registry_name(
+            self, registry_name, suffix=CALMJS_WEBPACK_MODULE_LOADER_SUFFIX):
+        return super(
+            WebpackModuleLoaderRegistry, self
+        ).resolve_parent_registry_name(registry_name, suffix)
+
+    def generate_complete_modname(self, prefix, modname, extension):
+        return WebpackModuleLoaderRegistryKey(prefix, modname + extension)
