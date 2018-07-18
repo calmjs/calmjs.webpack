@@ -11,6 +11,8 @@ from calmjs.webpack import loaderplugin
 from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
 from calmjs.webpack.loaderplugin import WebpackModuleLoaderRegistry
+from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
+from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
 
 from calmjs.toolchain import Spec
 from calmjs.toolchain import Toolchain
@@ -149,6 +151,36 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
 
         self.assertTrue(exists(join(spec['build_dir'], 'some.css')))
 
+    def test_modname_loader_map(self):
+        srcfile = join(mkdtemp(self), 'some.css')
+        spec = Spec(
+            build_dir=mkdtemp(self),
+            calmjs_webpack_modname_loader_map={
+                'some.css': ['style', 'css']
+            },
+        )
+        toolchain = Toolchain()
+        with open(srcfile, 'w') as fd:
+            fd.write('.body {}')
+
+        reg = LoaderPluginRegistry('calmjs.webpack.loaders')
+        reg.records['style'] = text = loaderplugin.WebpackLoaderHandler(
+            reg, 'style')
+        reg.records['css'] = loaderplugin.WebpackLoaderHandler(reg, 'css')
+        modpaths, targets, export_module_names = text(
+            toolchain, spec,
+            'style!css!some.css', srcfile, 'some.css', 'style!css!some.css'
+        )
+
+        self.assertEqual(
+            {'style!css!some.css': 'style!css!some.css'}, modpaths)
+        self.assertEqual({
+            'some.css': 'some.css',
+            './some.css': 'some.css',
+        }, targets)
+        self.assertEqual(
+            [], export_module_names)
+
 
 class WebpackModuleLoaderRegistryTestCase(unittest.TestCase):
 
@@ -190,3 +222,71 @@ class WebpackModuleLoaderRegistryTestCase(unittest.TestCase):
                 loader='style!css',
                 modname='calmjs/testing/module4/other.css'),
         ], sorted(loader_registry.get_records_for_package('calmjs').keys()))
+
+
+class PluginLoaderUtilityTestCase(unittest.TestCase):
+
+    def test_normalize_and_register_webpackloaders(self):
+        sourcepath_map = {
+            'normal/module': '/path/to/normal/module.js',
+            'text!prefixed/resource.txt': '/path/to/prefixed/resource.txt',
+            WebpackModuleLoaderRegistryKey('style!css', 'some/style.css'):
+                '/path/to/some/style.css',
+        }
+        spec = Spec()
+        self.assertEqual({
+            'normal/module': '/path/to/normal/module.js',
+            'text!prefixed/resource.txt': '/path/to/prefixed/resource.txt',
+            'style!css!some/style.css': '/path/to/some/style.css',
+        }, normalize_and_register_webpackloaders(spec, sourcepath_map))
+        self.assertEqual({
+            'some/style.css': ['style', 'css'],
+        }, spec['calmjs_webpack_modname_loader_map'])
+
+    def test_normalize_and_register_webpackloaders_empty(self):
+        sourcepath_map = {}
+        spec = Spec()
+        self.assertEqual(
+            {}, normalize_and_register_webpackloaders(spec, sourcepath_map))
+        self.assertEqual({}, spec['calmjs_webpack_modname_loader_map'])
+
+    def test_update_spec_webpack_loaders_modules(self):
+        spec = Spec(
+            calmjs_webpack_modname_loader_map={
+                'some/style.css': ['style', 'css'],
+            },
+        )
+        alias = {
+            'some/style.css': '/path/to/some/style.css',
+        }
+        update_spec_webpack_loaders_modules(spec, alias)
+
+        self.assertEqual([{
+            'test': '/path/to/some/style.css',
+            'loaders': ['style', 'css'],
+        }], spec['webpack_module_rules'])
+
+    def test_update_spec_webpack_loaders_modules_missing_alias(self):
+        spec = Spec(
+            calmjs_webpack_modname_loader_map={
+                'some/style.css': ['style', 'css'],
+            },
+        )
+        alias = {}
+        with pretty_logging(stream=StringIO()) as s:
+            update_spec_webpack_loaders_modules(spec, alias)
+
+        self.assertIn(
+            "WARNING modname 'some/style.css' requires loader chain "
+            "['style', 'css'] but it does not have a corresponding webpack "
+            "resolve.alias; webpack build failure may result as loaders are "
+            "not configured for this modname", s.getvalue(),
+        )
+
+        self.assertEqual([], spec['webpack_module_rules'])
+
+    def test_update_spec_webpack_loaders_modules_empty(self):
+        spec = Spec()
+        alias = {}
+        update_spec_webpack_loaders_modules(spec, alias)
+        self.assertEqual([], spec['webpack_module_rules'])

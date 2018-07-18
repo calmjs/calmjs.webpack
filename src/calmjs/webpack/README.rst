@@ -1,9 +1,9 @@
 Module layout
 =============
 
-This module, ``calmjs.webpack``, also follows the ``calmjs`` module
-layout order, but for clarity sake the modules defined here are included
-in the descriptions.
+This module, ``calmjs.webpack``, also mostly follows the ``calmjs``
+module layout order, but for clarity sake the modules defined here are
+included in the descriptions.
 
 interrogation
     Helpers for interrogating a webpack artifact file.
@@ -26,7 +26,9 @@ env
 
 loaderplugin
     Integration with the loader plugin system; include the base loader
-    plugins and an automatic registry system.
+    plugins and an automatic registry system.  Note that for the webpack
+    integration, loaderplugins have a much higher precedence as both the
+    toolchain and cli will require this module.
 
 registry
     Currently contain just one registry implementation, which is for

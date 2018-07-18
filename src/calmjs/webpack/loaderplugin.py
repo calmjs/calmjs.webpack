@@ -15,7 +15,9 @@ from os.path import join
 
 from calmjs.toolchain import BUILD_DIR
 from calmjs.loaderplugin import ModuleLoaderRegistry
+from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.base import CALMJS_WEBPACK_MODULE_LOADER_SUFFIX
+from calmjs.webpack.base import CALMJS_WEBPACK_MODNAME_LOADER_MAP
 from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 
 from calmjs.loaderplugin import LoaderPluginRegistry
@@ -61,6 +63,16 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
             # is simply unsustainable importability.
             './' + stripped_modname: target,
         }
+
+        # while it is possible (and tempting) to return the modname
+        # directly for the final mapping, the chaining through different
+        # loaders can complicate this (also it makes little sense under
+        # webpack to do so for a loader prefix-free not module), so just
+        # simply don't.
+        if spec.get(CALMJS_WEBPACK_MODNAME_LOADER_MAP, {}).get(
+                stripped_modname):
+            return modpaths, targets, []
+
         return modpaths, targets, self.finalize_export_module_names(
             toolchain, spec, [modname])
 
@@ -168,3 +180,58 @@ class WebpackModuleLoaderRegistry(ModuleLoaderRegistry):
 
     def generate_complete_modname(self, prefix, modname, extension):
         return WebpackModuleLoaderRegistryKey(prefix, modname + extension)
+
+
+def normalize_and_register_webpackloaders(spec, sourcepath_map):
+    """
+    Given that we want to rely on the existing loaderplugin processing
+    framework provided by the toolchain system, but we also want to
+    accept sourcepath maps with keys provided by the previous registry,
+    those keys must be converted to form accepted by the toolchain.
+    Fortunately, we can rely on the standard loader syntax, as the keys
+    provided can be treated as markers to note that they should be
+    processed as webpack module.loaders to enable prefix-free imports
+    from within webpack.
+
+    Takes a spec and an unprocessed sourcepath mapping, and returns a
+    new mapping with the special keys converted to the standard loader
+    prefixed syntax, after marking them in the spec.
+    """
+
+    result = {}
+    spec[WEBPACK_MODULE_RULES] = []
+    mapping = spec[CALMJS_WEBPACK_MODNAME_LOADER_MAP] = spec.get(
+        CALMJS_WEBPACK_MODNAME_LOADER_MAP, {})
+    for key, path in sourcepath_map.items():
+        if isinstance(key, WebpackModuleLoaderRegistryKey):
+            result['%s!%s' % key] = path
+            mapping[key.modname] = key.loader.split('!')
+        else:
+            result[key] = path
+    return result
+
+
+def update_spec_webpack_loaders_modules(spec, alias):
+    """
+    This transforms the module names that may be set up by the previous
+    function to the actual real path that is required for the webpack
+    configuration to effect the loaders stored inside module.rules.
+    Specifically, the full path to the original file must be provided.
+    """
+
+    spec[WEBPACK_MODULE_RULES] = spec.get(WEBPACK_MODULE_RULES, [])
+    modname_loader_map = spec.get(CALMJS_WEBPACK_MODNAME_LOADER_MAP, {})
+    for modname, loaders in modname_loader_map.items():
+        targetpath = alias.get(modname)
+        if not targetpath:
+            logger.warning(
+                "WARNING modname '%s' requires loader chain %r but it does "
+                "not have a corresponding webpack resolve.alias; "
+                "webpack build failure may result as loaders are "
+                "not configured for this modname", modname, loaders,
+            )
+            continue
+        spec[WEBPACK_MODULE_RULES].append({
+            'test': targetpath,
+            'loaders': loaders,
+        })

@@ -11,6 +11,11 @@ from collections import namedtuple
 
 # enable calmjs compatibility - i.e. the dynamic import feature
 CALMJS_COMPAT = 'calmjs_compat'
+# the map from a module name to the loader needed; used by the various
+# functions and methods in the loaderplugin module
+# see definition of WebpackModuleLoaderRegistryKey later
+CALMJS_WEBPACK_MODNAME_LOADER_MAP = 'calmjs_webpack_modname_loader_map'
+
 # The spec key for storing the base webpack configuration.
 WEBPACK_CONFIG = 'webpack_config'
 # The key for the webpack.output.library
@@ -25,6 +30,8 @@ WEBPACK_ENTRY_POINT = 'webpack_entry_point'
 # For webpack loaderplugin integration - this is the spec key - note that
 # this is NOT for webpack plugins which are a separate type of things
 WEBPACK_LOADERPLUGINS = 'webpack_loaderplugins'
+# for the module.rules section; used by loaderplugin module
+WEBPACK_MODULE_RULES = 'webpack_module_rules'
 # for the configuration in webpack config
 WEBPACK_RESOLVELOADER_ALIAS = 'webpack_resolveloader_alias'
 
