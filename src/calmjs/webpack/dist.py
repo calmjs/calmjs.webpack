@@ -126,7 +126,7 @@ def _generate_transpile_maps(
 
 
 def generate_transpile_sourcepaths(
-        package_names, registries=('calmjs.modules'), method=_default):
+        package_names, registries=('calmjs.modules',), method=_default):
     """
     Invoke the module_registry_dependencies family of dist functions,
     with the specified registries, to produce the required the module
@@ -163,7 +163,7 @@ def generate_transpile_sourcepaths(
 
 
 def generate_transpiled_externals(
-        package_names, registries=('calmjs.modules'), method=_default):
+        package_names, registries=('calmjs.modules',), method=_default):
     """
     Webpack specific - for every call to generate_transpile_sourcepaths
     with the results assigned to the transpile_sourcepaths of a spec, an

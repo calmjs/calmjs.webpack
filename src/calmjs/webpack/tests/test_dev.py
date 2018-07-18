@@ -117,7 +117,7 @@ class KarmaTestcase(unittest.TestCase):
         dev._apply_coverage(None, spec)
 
         self.assertEqual({
-            "module": {"loaders": [{
+            "module": {"rules": [{
                 "loader": "sourcemap-istanbul-instrumenter-loader",
                 "include": [
                     'some/test/file', join(spec['build_dir'], 'afile.js')
@@ -130,8 +130,7 @@ class KarmaTestcase(unittest.TestCase):
             karma_config={
                 'webpack': {
                     'module': {
-                        'rules': [],
-                        'loaders': [
+                        'rules': [
                             {'loader': 'demo-loader'}
                         ],
                     },
@@ -144,7 +143,7 @@ class KarmaTestcase(unittest.TestCase):
         dev._apply_coverage(None, spec)
 
         self.assertEqual({
-            "module": {'rules': [], "loaders": [{'loader': 'demo-loader'}, {
+            "module": {"rules": [{'loader': 'demo-loader'}, {
                 "loader": "sourcemap-istanbul-instrumenter-loader",
                 "include": [
                     'some/test/file', join(spec['build_dir'], 'afile.js')

@@ -264,9 +264,14 @@ def _apply_coverage(toolchain, spec):
     if not loader:
         return
     config = spec[karma.KARMA_CONFIG]
-    module = config['webpack']['module'] = config['webpack'].get('module', {})
-    loaders = module['loaders'] = module.get('loaders', [])
-    loaders.append(loader)
+    rules = _apply_webpack_module_rules(config['webpack'])
+    rules.append(loader)
+
+
+def _apply_webpack_module_rules(webpack_config):
+    module = webpack_config['module'] = webpack_config.get('module', {})
+    rules = module['rules'] = module.get('rules', [])
+    return rules
 
 
 def karma_webpack(spec, toolchain=None):
