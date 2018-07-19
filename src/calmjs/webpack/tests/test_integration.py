@@ -1416,12 +1416,15 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         # integration harness will stub out the root distribution which
         # will break the installation of real tools.
         utils.setup_class_integration_environment(cls)
+        # plus the integration setup for the loader packages
+        cls_setup_webpack_loader_integration_packages(cls)
         # also the test data. note that after this stage, the module
         # registry should NOT be reinitiated (at least until helpers for
         # specific selection of which module entries are used is added).
         cls_setup_webpack_example_package(cls)
         # plus the extra packages
-        _setup_extra_install(cls._cls_tmpdir, ['example.loader'])
+        _setup_extra_install(cls._cls_tmpdir, [
+            'example.loader', 'example.styledemo'])
 
     @classmethod
     def tearDownClass(cls):
@@ -1599,6 +1602,59 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
                 'example.extras',
             ])
         self.assertEqual(e.exception.args[0], 0)
+
+    def test_module_rule_loaders_proper_assignment(self):
+        """
+        Since it is rather infeasible to test for styling changes with
+        just Node.js, here the actual karma/sinon tests encoded by the
+        test set up will be executed to show that colour changes are
+        applied by the styles encoded inside the artifact.
+        """
+
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_styledemo.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma',
+                # TODO remove after release of calmjs.dev-2.2.0, as the
+                # automatic resolution of loaders the test registries
+                # should work, same as below.
+                '--test-registry=calmjs.module.simulated.tests,'
+                'calmjs.module.simulated.tests.webpackloader',
+                'webpack', 'example.styledemo',
+                '--export-target=' + export_target,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+    def test_module_rule_loaders_proper_assignment_with_coverage(self):
+        """
+        Same as above, but ensure that coverage is generated
+        """
+
+        utils.stub_stdouts(self)
+        build_dir = utils.mkdtemp(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_styledemo.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', '--coverage', '--cover-test',
+                '--cover-report-dir=' + build_dir,
+                # TODO remove test-registry flag
+                '--test-registry=calmjs.module.simulated.tests,'
+                'calmjs.module.simulated.tests.webpackloader',
+                'webpack', 'example.styledemo',
+                '--export-target=' + export_target,
+                '--build-dir=' + build_dir,
+            ])
+        self.assertEqual(e.exception.args[0], 0)
+        self.assertTrue(exists(export_target))
+
+        with open(join(build_dir, 'lcov', 'lcov.info')) as fd:
+            report = fd.read()
+            self.assertIn('index.js', report)
+            self.assertIn('styledemo', report)
 
     def test_calmjs_artifact_test_verification(self):
         utils.stub_stdouts(self)
