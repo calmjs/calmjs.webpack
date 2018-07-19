@@ -1,6 +1,19 @@
 Changelog
 =========
 
+1.1.0 (Unreleased)
+------------------
+
+- The base loader plugin handler will also generate a modname prefixed
+  with ``./``, in an attempt to provide a more natural include mechanism
+  from within certain webpack loader contexts, as a number of them will
+  implicitly resolve by relative path for a bare import, and the goal is
+  to avoid further proprietary webpack syntaxes (e.g. the usage of the
+  ``~`` prefixes to some ``namespace/package`` import/inclusions done
+  inside the loader context).  [
+  `#4 <https://github.com/calmjs/calmjs.webpack/issues/4>`_
+  ]
+
 1.0.2 (2018-05-24)
 ------------------
 

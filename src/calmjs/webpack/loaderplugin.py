@@ -40,7 +40,19 @@ class BaseWebpackLoaderHandler(LoaderPluginHandler):
         shutil.copy(source, copy_target)
 
         modpaths = {modname: modpath}
-        targets = {stripped_modname: target}
+        targets = {
+            stripped_modname: target,
+            # Also include the relative path as a default alias so that
+            # within the context of the loader, any implicit joining of
+            # the current directory (i.e. './') with any declared
+            # modnames within the system will not affect the ability to
+            # do bare imports (e.g. "namespace/package/resource.data")
+            # within the loader's interal import system.
+            #
+            # Seriously, forcing the '~' prefixes on all user imports
+            # is simply unsustainable importability.
+            './' + stripped_modname: target,
+        }
         export_module_names = [modname]
         return modpaths, targets, export_module_names
 
