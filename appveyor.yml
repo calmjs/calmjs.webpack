@@ -2,13 +2,13 @@ environment:
   matrix:
     - PYTHON: "C:\\Python27"
       nodejs_version: "6.14"
-    - PYTHON: "C:\\Python33"
-      nodejs_version: "8.10"
     - PYTHON: "C:\\Python34"
       nodejs_version: "6"
     - PYTHON: "C:\\Python35"
       nodejs_version: "8"
     - PYTHON: "C:\\Python36"
+      nodejs_version: "10"
+    - PYTHON: "C:\\Python37"
       nodejs_version: "10"
 
 install:
