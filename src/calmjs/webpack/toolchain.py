@@ -37,6 +37,8 @@ from calmjs.parse.utils import repr_compat
 
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
+from calmjs.webpack.base import WEBPACK_MODULE_RULES
+from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
 
 from .dev import webpack_advice
 from .env import webpack_env
@@ -378,6 +380,7 @@ class WebpackToolchain(ES5Toolchain):
                 'alias': spec.get(WEBPACK_RESOLVELOADER_ALIAS, {}),
             },
             'externals': spec.get(WEBPACK_EXTERNALS, {}),
+            'module': {},
         }
         if WEBPACK_OUTPUT_LIBRARY in spec:
             webpack_config['output']['library'] = spec[WEBPACK_OUTPUT_LIBRARY]
@@ -510,6 +513,9 @@ class WebpackToolchain(ES5Toolchain):
                     "or externals: %s",
                     ', '.join(sorted(repr_compat(m) for m in missing))
                 )
+
+        update_spec_webpack_loaders_modules(spec, alias)
+        webpack_config['module']['rules'] = spec.get(WEBPACK_MODULE_RULES, [])
 
         # write the configuration file, after everything is checked.
         self.write_webpack_config(spec, webpack_config)

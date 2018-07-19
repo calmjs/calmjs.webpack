@@ -35,9 +35,12 @@ from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
 from calmjs.testing import utils
 from calmjs.testing.mocks import StringIO
 
-from calmjs.webpack.testing.utils import cls_setup_webpack_example_package
-from calmjs.webpack.testing.utils import generate_example_bundles
-from calmjs.webpack.testing.utils import skip_full_toolchain_test
+from calmjs.webpack.testing.utils import (
+    cls_setup_webpack_example_package,
+    cls_setup_webpack_loader_integration_packages,
+    generate_example_bundles,
+    skip_full_toolchain_test,
+)
 
 
 def run_node(src, *requires):
@@ -98,10 +101,15 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # integration harness will stub out the root distribution which
         # will break the installation of real tools.
         utils.setup_class_integration_environment(cls)
-        # also our test data.
+        # plus the integration setup for the loader packages
+        cls_setup_webpack_loader_integration_packages(cls)
+        # also the test data. note that after this stage, the module
+        # registry should NOT be reinitiated (at least until helpers for
+        # specific selection of which module entries are used is added).
         cls_setup_webpack_example_package(cls)
         # plus the extra packages
-        _setup_extra_install(cls._cls_tmpdir, ['example.loader'])
+        _setup_extra_install(cls._cls_tmpdir, [
+            'example.loader', 'example.styledemo'])
 
         # since our configuration paths will be at arbitrary locations
         # (i.e. temporary directories), NODE_PATH must be defined.
@@ -496,6 +504,65 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         self.assertIn(
             "no valid node_modules found - webpack may fail to locate itself",
             log)
+
+    def test_webpack_toolchain_webpackloader_style_css(self):
+        build_dir = utils.mkdtemp(self)
+        loaderplugin_sourcepath_maps = {
+            # just start off with one standalone file without imports
+            # for the most basic test to have one base test case;
+            # naturally ensure the name is available but mapped to the
+            # other @import free file.
+            'style': {
+                'style!css!example/styledemo/index.css': join(
+                    self._es_root, 'extra.css'),
+            },
+            'css': {
+                'css!example/styledemo/index.css': join(
+                    self._es_root, 'extra.css'),
+            },
+        }
+        export_target = join(utils.mkdtemp(self), 'example.styledemo.js')
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        spec = Spec(
+            transpile_sourcepath={
+                'example/styledemo/index': join(self._es_root, 'index.js'),
+            },
+            bundle_sourcepath={},
+            loaderplugin_sourcepath_maps=loaderplugin_sourcepath_maps,
+            export_target=export_target,
+            build_dir=build_dir,
+            calmjs_webpack_modname_loader_map={
+                'example/styledemo/index.css': ['style', 'css'],
+            },
+            webpack_output_library='example.styledemo',
+        )
+        with pretty_logging(stream=StringIO()) as stream:
+            webpack(spec)
+
+        self.assertIn(
+            "AutogenWebpackLoaderPluginRegistry registry "
+            "'calmjs.webpack.loaderplugins' generated loader handler 'style'",
+            stream.getvalue(),
+        )
+        self.assertIn(
+            "AutogenWebpackLoaderPluginRegistry registry "
+            "'calmjs.webpack.loaderplugins' generated loader handler 'css'",
+            stream.getvalue(),
+        )
+
+        self.assertTrue(exists(export_target))
+
+        with open(export_target) as fd:
+            # ensure the css is included
+            self.assertIn('.table { border: 1px solid #000; }', fd.read())
+
+        # This bundle will not actually run; for the actual testing, the
+        # calmjs.dev integration tests provide it.
+        stdout, stderr = run_node("""
+        var artifact = %s;
+        """, export_target)
+        self.assertNotEqual(stderr, '')
 
     # Tests using the Toolchain with the cli abstraction.
 
@@ -1349,7 +1416,9 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         # integration harness will stub out the root distribution which
         # will break the installation of real tools.
         utils.setup_class_integration_environment(cls)
-        # also our test data.
+        # also the test data. note that after this stage, the module
+        # registry should NOT be reinitiated (at least until helpers for
+        # specific selection of which module entries are used is added).
         cls_setup_webpack_example_package(cls)
         # plus the extra packages
         _setup_extra_install(cls._cls_tmpdir, ['example.loader'])
