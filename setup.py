@@ -80,8 +80,15 @@ setup(
         'calmjs.registry': [
             'calmjs.webpack.loaderplugins = '
             'calmjs.webpack.loaderplugin:AutogenWebpackLoaderPluginRegistry',
+
             'calmjs.webpack.static.loaderplugins = '
             'calmjs.loaderplugin:LoaderPluginRegistry',
+
+            'calmjs.module.webpackloader = '
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
+
+            'calmjs.module.tests.webpackloader = '
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
         ],
         'calmjs.webpack.static.loaderplugins': [
             'text = calmjs.webpack.loaderplugin:WebpackLoaderHandler',

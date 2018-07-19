@@ -17,6 +17,7 @@ from calmjs.cli import node
 from calmjs import runtime
 from calmjs.utils import pretty_logging
 from calmjs.registry import get as get_registry
+from calmjs.loaderplugin import LoaderPluginRegistry
 
 from calmjs.parse.parsers.es5 import parse
 from calmjs.parse.walkers import ReprWalker
@@ -30,6 +31,7 @@ from calmjs.webpack import toolchain
 from calmjs.webpack import cli
 from calmjs.webpack import exc
 from calmjs.webpack import interrogation
+from calmjs.webpack import loaderplugin
 from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
 
 from calmjs.testing import utils
@@ -70,6 +72,28 @@ def _setup_extra_install(working_dir, packages):
     if not os.environ.get('CALMJS_TEST_ENV'):  # pragma: no cover
         driver = Driver(working_dir=working_dir)
         driver.pkg_manager_install(packages, production=False, merge=True)
+
+
+class RegistryRegisteredTests(unittest.TestCase):
+
+    def test_registry_registered(self):
+        # ensure that the registries are actually working
+        self.assertTrue(isinstance(
+            get_registry('calmjs.webpack.loaderplugins'),
+            loaderplugin.AutogenWebpackLoaderPluginRegistry,
+        ))
+        self.assertTrue(isinstance(
+            get_registry('calmjs.webpack.static.loaderplugins'),
+            LoaderPluginRegistry,
+        ))
+        self.assertTrue(isinstance(
+            get_registry('calmjs.module.webpackloader'),
+            loaderplugin.WebpackModuleLoaderRegistry,
+        ))
+        self.assertTrue(isinstance(
+            get_registry('calmjs.module.tests.webpackloader'),
+            loaderplugin.WebpackModuleLoaderRegistry,
+        ))
 
 
 @unittest.skipIf(*skip_full_toolchain_test())
