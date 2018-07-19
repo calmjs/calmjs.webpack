@@ -80,8 +80,10 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
 
         self.assertEqual(
             {'text!some.file.txt': 'text!some.file.txt'}, modpaths)
-        self.assertEqual(
-            {'some.file.txt': 'some.file.txt'}, targets)
+        self.assertEqual({
+            'some.file.txt': 'some.file.txt',
+            './some.file.txt': 'some.file.txt',
+        }, targets)
         self.assertEqual(
             ['text!some.file.txt'], export_module_names)
 
@@ -105,8 +107,10 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
 
         self.assertEqual(
             {'text!some.file.txt': 'text!some.file.txt'}, modpaths)
-        self.assertEqual(
-            {'some.file.txt': tgtfile}, targets)
+        self.assertEqual({
+            'some.file.txt': tgtfile,
+            './some.file.txt': tgtfile,
+        }, targets)
         self.assertEqual(
             ['text!some.file.txt'], export_module_names)
 
@@ -129,8 +133,10 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
 
         self.assertEqual(
             {'text!css!some.css': 'text!css!some.css'}, modpaths)
-        self.assertEqual(
-            {'some.css': 'some.css'}, targets)
+        self.assertEqual({
+            'some.css': 'some.css',
+            './some.css': 'some.css',
+        }, targets)
         self.assertEqual(
             ['text!css!some.css'], export_module_names)
 
