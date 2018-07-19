@@ -137,6 +137,10 @@ class WebpackLoaderHandler(NPMLoaderPluginHandler, BaseWebpackLoaderHandler):
 
     @property
     def node_module_pkg_name(self):
+        # TODO figure out how to make this fallback?
+        # i.e. pre-process using locate_package_entry_file?
+        # modify generate_handler_sourcepath so that it calls
+        # a thing that sets a private attribute for this?
         return self.name + '-loader'
 
 

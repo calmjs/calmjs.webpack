@@ -536,26 +536,146 @@ feature may be disabled by the ``--disable-calmjs-compat`` flag.
 Handling of Webpack loaders
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If a provided JavaScript module imports a target using the inline loader
-syntax, the default registry ``calmjs.webpack.loaderplugins`` will
-resolve a generic handler to copy the target files.  This generic
-handler supports the chaining of loaders.  If this behavior is unwanted,
-a static registry is defined at ``calmjs.webpack.static.loaderplugins``
-for this purpose.  If a mix of the two is needed (e.g. where some
-specific loader require special handling), it is also possible to
-register the specific handler to override the generic handler for that
-specific loader.
+Webpack provides the support of loaders to handle the importing of
+files that are not JavaScript sources, such that the importing of files
+such as text of JSON file can be done seamlessly with their import
+system.  Python packages may export these resource files to make them
+available for the webpack environment through a subsidiary loader
+registry ``calmjs.module.loader`` that will expose the relevant resource
+files for namespaces defined in ``calmjs.module`` registry for the given
+package.
 
-So if some JavaScript code contain a require statement like:
+As for the integration of the loaders themselves with the Calmjs
+toolchain system, a separate loaderplugin registry must be specified.
+For the webpack toolchain, the ``calmjs.webpack.loaderplugins`` registry
+is assigned as the default, which will resolve a generic handler to
+handle the target resource files.  This generic handler supports the
+chaining of loaders.  Specific handlers for the resource types may be
+assigned directly to that registry, for example if an alternative
+Node.js package is required to override the default automatically
+generated handler.
+
+If this automatic resolution behavior is unwanted, a static registry is
+defined at ``calmjs.webpack.static.loaderplugins`` for this purpose,
+however, to enable the usage of this registry at this time require the
+usage of the toolchain API directly.
+
+As for specifying which resource files contained in Python packages are
+to be made available for the webpack environment, the subsidiary module
+loader registry ``calmjs.module.loader`` should be used.
+
+Putting all this together, the ``example`` package defined earlier is
+now extended to expose various types of resource files for usage:
+
+.. code:: ini
+
+    [calmjs.module]
+    example.lib = example.lib
+    example.app = example.app
+
+    [calmjs.module.loader]
+    json = json[json]
+    text = text[txt,json]
+
+This would make the relevant resource files under both the
+``example/lib`` and ``example/app`` namespace available under the
+relevant loaders, such that if some JavaScript code contain a require
+statement like either of the following:
 
 .. code:: JavaScript
 
-    var readme = require('text!readme.txt');
+    var readme_lib = require('text!example/lib/readme.txt');
+    var data_txt = require('text!example/lib/data.json');
+    var data = require('json!example/lib/data.json');
 
-And there exists a custom Calmjs module registry that provide those
-sources, the default loaderplugin handler registry will provide a
-standard handler that will process this, provided the loader package is
-available along with webpack on the working Node.js environment.
+Please do note that this will make available these full names for
+dynamic module imports as the full names are exposed out of the
+generated artifact.
+
+The default loaderplugin handler registry will provide the standard
+handler as none are defined, such that those require statements with an
+explicit loader prefix will be resolved correctly.  However, webpack has
+largely deprecated the usage of explicit loader prefixes, and prefers a
+syntax that imports without the prefix specified.  This requires a
+different handling method, documented in the next section.
+
+Handling of ``require()`` without explicit ``loader!`` prefixes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If the support of the RequireJS/AMD tooling is ignored (note that this
+will affect any dependent Python packages that make use of this code
+directly, as it does not currently support this import method yet), the
+bare import syntax may be used, for example:
+
+.. code:: JavaScript
+
+    var readme_app = require('example/app/readme.txt');
+    var style = require('example/app/style.css');
+
+One reason why compatibility across all toolchains, especially with
+loaders, is difficult if not impossible to implement is due to the many
+variations with there are a variety of methods implemented by the
+different Node.js tooling.  For instance, importing stylesheets from
+within webpack is usually done by chaining the ``style-loader`` with
+whatever specific stylesheet loader, such as ``css-loader`` or
+``sass-loader`` down the chain.  While it is possible to define the
+following entry point on the ``calmjs.module.loader`` registry::
+
+    [calmjs.module.loader]
+    style!css = css[css]
+
+With the above definition, importing stylesheet resources using the
+complete syntax (i.e. ``require('style!css!example/app/style.css');``
+will work, but it is incompatible with the ``require-css`` loader as
+it does not necessarily support the chaining of the ``style`` loader
+prefix as the RequireJS version of the plugin will apply the styles
+immediately without that (this is why the loader-prefixes are considered
+non-portable).
+
+So to better support this more agnostic use case, |webpack| provides a
+``module.rules`` section that dictates how the specific module is to be
+loaded, so that the loaderprefix-free loading can be achieved (i.e. the
+previous JavaScript fragment).  To specifically support this through
+Calmjs, the resources entry points should be defined under the
+``calmjs.module.webpackloader`` registry instead of the common
+ ``calmjs.module.loader`` registry.  For example:
+
+.. code:: ini
+
+    [calmjs.module]
+    example.lib = example.lib
+    example.app = example.app
+
+    [calmjs.module.webpackloader]
+    style!css = stylesheet[css]
+    text = txt[txt]
+
+Please note that if a given file name extension is defined on multiple
+webpackloaders (note that the text loader has removed json as a file
+name extension), the resulting behavior is undefined as the generated
+configuration will not guarantee that the loaders are chained together
+in the expected manner, as both loaders will be applied to the selected
+files under an undefined ordering.  If a file name extension defined in
+this is also defined in the ``calmjs.module.loader`` registry, it will
+also cause complications.
+
+If multiple loaders are required (such as for the case of stylesheets),
+use the chained syntax as in the ``style!css`` definition to ensure that
+they are applied correctly, much like they would have been if they were
+prefixed on the imports directly for this particular Python package.
+
+Much like the standard ``calmjs.module.loader`` registry, the
+definitions to the filename extensions are local to the package, so that
+definitions that make use of a different set of loaders from an upstream
+or downstream package will not cause interference with how they are
+applied.
+
+Also note that this registry will not make available the gathered module
+or import names for the dynamic module imports by the default loader
+plugin handlers, as there exists a number of subtle complexities that
+severely complicates exposing these names in a meaningful manner for
+usage within the calmjs system.  In effect, no dynamic imports will be
+possible after the construction of the artifact.
 
 Testing standalone, finalized webpack artifacts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
