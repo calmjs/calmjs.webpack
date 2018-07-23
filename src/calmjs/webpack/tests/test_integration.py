@@ -1408,7 +1408,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
 
 @unittest.skipIf(karma is None, 'calmjs.dev or its karma module not available')
-class KarmatoolchainIntegrationTestCase(unittest.TestCase):
+class KarmaToolchainIntegrationTestCase(unittest.TestCase):
     """
     Test out the karma toolchain, involving webpack completely along
     with the karma testing framework as defined by calmjs.dev
@@ -1481,10 +1481,12 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
+        report_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage',
+                '--cover-report-dir=' + report_dir,
                 'webpack', 'example.package',
                 '--export-target=' + export_target,
                 '--build-dir=' + build_dir,
@@ -1493,7 +1495,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertTrue(exists(export_target))
 
         # verify that the coverage was recorded only for packge
-        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        coverage_file = join(report_dir, 'coverage.json')
         with codecs.open(coverage_file, encoding='utf8') as fd:
             coverage = json.load(fd)
         expected = {
@@ -1507,10 +1509,12 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
+        report_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_package.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage', '--cover-test',
+                '--cover-report-dir=' + report_dir,
                 'webpack', 'example.package',
                 '--export-target=' + export_target,
                 '--build-dir=' + build_dir,
@@ -1519,7 +1523,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertTrue(exists(export_target))
 
         # verify that the coverage was recorded for test also.
-        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        coverage_file = join(report_dir, 'coverage.json')
         with codecs.open(coverage_file, encoding='utf8') as fd:
             coverage = json.load(fd)
         expected = {
@@ -1546,10 +1550,12 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         utils.stub_stdouts(self)
         current_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
+        report_dir = utils.mkdtemp(self)
         export_target = join(current_dir, 'example_extras.js')
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma', '--coverage', '--cover-test',
+                '--cover-report-dir=' + report_dir,
                 'webpack', 'example.extras',
                 '--export-target=' + export_target,
                 '--build-dir=' + build_dir,
@@ -1558,7 +1564,7 @@ class KarmatoolchainIntegrationTestCase(unittest.TestCase):
         self.assertTrue(exists(export_target))
 
         # verify that the coverage was recorded.
-        coverage_file = join(self._env_root, 'coverage', 'coverage.json')
+        coverage_file = join(report_dir, 'coverage.json')
         with codecs.open(coverage_file, encoding='utf8') as fd:
             coverage = json.load(fd)
         expected = {
