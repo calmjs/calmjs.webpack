@@ -1658,6 +1658,11 @@ class KarmaToolchainIntegrationTestCase(unittest.TestCase):
         self.assertEqual(e.exception.args[0], 0)
         self.assertTrue(exists(export_target))
 
+        with open(export_target) as fd:
+            # ensure that the contents source by test registries are not
+            # encoded into the final artifact also
+            self.assertNotIn('hello world', fd.read())
+
     def test_module_rule_loaders_proper_assignment_with_coverage(self):
         """
         Same as above, but ensure that coverage is generated
@@ -1685,6 +1690,39 @@ class KarmaToolchainIntegrationTestCase(unittest.TestCase):
             report = fd.read()
             self.assertIn('index.js', report)
             self.assertIn('styledemo', report)
+
+    def test_karma_test_runner_standalone_artifact_with_test_loaders(self):
+        """
+        Show that the standalone artifact won't conflict with the
+        test loaders also.
+        """
+
+        utils.stub_stdouts(self)
+        current_dir = utils.mkdtemp(self)
+        export_target = join(current_dir, 'example_styledemo.js')
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'webpack', 'example.styledemo',
+                '--export-target=' + export_target,
+            ])
+
+        self.assertTrue(exists(export_target))
+
+        # leverage the karma run command to run the tests provided by
+        # the example.package against the resulting artifact.
+        with self.assertRaises(SystemExit) as e:
+            runtime.main([
+                'karma', 'run',
+                '--test-with-package', 'example.styledemo',
+                # note the omitted --test-registry
+                '--artifact', export_target,
+                '--toolchain-package', 'calmjs.webpack',
+                # TODO remove test-registry flag
+                '--test-registry=calmjs.module.simulated.tests,'
+                'calmjs.module.simulated.tests.webpackloader',
+            ])
+        # tests should pass against the resultant bundle
+        self.assertEqual(e.exception.args[0], 0)
 
     def test_calmjs_artifact_test_verification(self):
         utils.stub_stdouts(self)

@@ -86,6 +86,7 @@ def cls_setup_webpack_loader_integration_packages(cls):
             '"use strict";\n'
             '\n'
             'var styledemo = require("example/styledemo/index");\n'
+            'var text = require("example/styledemo/tests/hello.txt");\n'
             '\n'
             'describe("styling test cases", function() {\n'
             '    afterEach(function() {\n'
@@ -94,6 +95,10 @@ def cls_setup_webpack_loader_integration_packages(cls):
             '\n'
             '    it("we got toast", function() {\n'
             '        expect(styledemo.toast("toast")).equal("toast");\n'
+            '    });\n'
+            '\n'
+            '    it("text is hello", function() {\n'
+            '        expect(text).equal("hello world");\n'
             '    });\n'
             '\n'
             '    it("styles are available", function() {\n'
@@ -127,6 +132,9 @@ def cls_setup_webpack_loader_integration_packages(cls):
             '.tr { border: 1px solid #f00; }\n'
         )
 
+    with open(join(cls._es_root, 'tests', 'hello.txt'), 'w') as fd:
+        fd.write('hello world')
+
     # tie everything together with the webpackloader registry
     utils.make_dummy_dist(None, (
         ('requires.txt', ''),
@@ -134,6 +142,9 @@ def cls_setup_webpack_loader_integration_packages(cls):
             'dependencies': {
                 'style-loader': '~0.21.0',
                 'css-loader': '~0.28.11',
+            },
+            'devDependencies': {
+                'text-loader': '~0.0.1',
             },
         })),
         ('calmjs_module_registry.txt', '\n'.join([
@@ -146,16 +157,14 @@ def cls_setup_webpack_loader_integration_packages(cls):
         # throw in some .tests.webpackloader under the tests too?
         # or also .tests.loader
         ('entry_points.txt', (
-            '[%s]\n'
+            '[{0}]\n'
             'example.styledemo = example.styledemo\n'
-            '[%s.tests]\n'
+            '[{0}.tests]\n'
             'example.styledemo.tests = example.styledemo.tests\n'
-            '[%s.webpackloader]\n'
-            'style!css = stylesheets[css]\n' % (
-                cls.registry_name,
-                cls.registry_name,
-                cls.registry_name,
-            )
+            '[{0}.webpackloader]\n'
+            'style!css = stylesheets[css]\n'
+            '[{0}.tests.webpackloader]\n'
+            'text-loader = text[txt]\n'.format(cls.registry_name)
         )),
     ), 'example.styledemo', '1.0', working_dir=cls.dist_dir)
 
@@ -167,6 +176,7 @@ def cls_setup_webpack_loader_integration_packages(cls):
         cls.registry_name,
         cls.registry_name + '.tests',
         cls.registry_name + '.webpackloader',
+        cls.registry_name + '.tests.webpackloader',
     )
 
 

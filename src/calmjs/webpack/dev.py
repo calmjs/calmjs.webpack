@@ -44,10 +44,14 @@ from calmjs.parse import io
 from calmjs.interrogate import yield_module_imports_nodes
 
 from calmjs.webpack.base import WEBPACK_CONFIG
+from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
+from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
+from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
+from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 
 logger = logging.getLogger(__name__)
@@ -137,12 +141,21 @@ def _finalize_test_path(toolchain, spec, modname, path):
 
 
 def _process_loaders_paths(toolchain, spec, loaders_paths_map):
+    """
+    This function processes the loaders_paths_map in place into a form
+    that may be encoded into JSON
+    """
+
     fake_spec = {
         CALMJS_LOADERPLUGIN_REGISTRY: spec.get(CALMJS_LOADERPLUGIN_REGISTRY),
         WEBPACK_RESOLVELOADER_ALIAS: {},
     }
+    # work with this copy for the mean time before applying the maps
+    # back
+    filtered_loaders_paths_map = normalize_and_register_webpackloaders(
+        fake_spec, loaders_paths_map)
     spec_update_sourcepath_filter_loaderplugins(
-        fake_spec, loaders_paths_map, 'default')
+        fake_spec, filtered_loaders_paths_map, 'default')
     toolchain_spec_prepare_loaderplugins(
         toolchain, fake_spec, 'testloaders', WEBPACK_RESOLVELOADER_ALIAS)
     # borrow the private entry generator by the toolchain.
@@ -171,10 +184,19 @@ def _process_loaders_paths(toolchain, spec, loaders_paths_map):
     resolve_loader = dict_setget_dict(webpack_conf, 'resolveLoader')
     resolve_loader_alias = dict_setget_dict(resolve_loader, 'alias')
     resolve_loader_alias.update(fake_spec[WEBPACK_RESOLVELOADER_ALIAS])
+    update_spec_webpack_loaders_modules(fake_spec, resolve_alias)
+    # also grab the extra loader rules that got generated
+    loaders = fake_spec.get(WEBPACK_MODULE_RULES, [])
+    if loaders:
+        rules = _apply_webpack_module_rules(webpack_conf)
+        rules.extend(loaders)
 
     # grab all the raw modpath keys and store them for the module
     # generation process later.
     spec[TEST_LOADER_MODNAMES] = set(modpaths)
+    # update the actual mapping
+    loaders_paths_map.clear()
+    loaders_paths_map.update(filtered_loaders_paths_map)
 
 
 def _process_test_files(toolchain, spec):
@@ -191,7 +213,10 @@ def _process_test_files(toolchain, spec):
     # Process tests separately; include them iff the filename starts
     # with test, otherwise they are just provided as dependency modules.
     for modname, path in spec.get(TEST_MODULE_PATHS_MAP, {}).items():
-        if '!' in modname:
+        # TODO when the rules are formalised into a separate function,
+        # make use of that.
+        if '!' in modname or isinstance(
+                modname, WebpackModuleLoaderRegistryKey):
             # defer the handling to later
             loaders_paths_map[modname] = path
             continue
