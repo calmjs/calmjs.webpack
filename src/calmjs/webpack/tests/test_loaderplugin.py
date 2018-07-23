@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
+import os
 from os.path import exists
 from os.path import join
 from pkg_resources import working_set as root_working_set
@@ -18,8 +19,10 @@ from calmjs.toolchain import Spec
 from calmjs.toolchain import Toolchain
 from calmjs.utils import pretty_logging
 from calmjs.testing.utils import mkdtemp
+from calmjs.testing.utils import remember_cwd
 from calmjs.testing.mocks import StringIO
 from calmjs.testing.mocks import WorkingSet
+from calmjs.webpack.testing.utils import create_mock_npm_package
 
 
 class AutoRegistryTestCase(unittest.TestCase):
@@ -180,6 +183,59 @@ class WebpackLoaderPluginTestCase(unittest.TestCase):
         }, targets)
         self.assertEqual(
             [], export_module_names)
+
+    def test_find_node_module_pkg_name(self):
+        remember_cwd(self)
+        text_handler = loaderplugin.WebpackLoaderHandler(None, 'text')
+        working_dir = mkdtemp(self)
+        os.chdir(working_dir)
+        toolchain = Toolchain()
+        spec = Spec()
+
+        # base test without any Node.js packages available
+        self.assertEqual(
+            'text-loader',
+            text_handler.find_node_module_pkg_name(toolchain, spec)
+        )
+
+        # now provide a package named simply 'text'
+        create_mock_npm_package(working_dir, 'text', 'index.js')
+        # which, being available, will resolve directly to 'text' due to
+        # ambiguity.
+        self.assertEqual(
+            'text',
+            text_handler.find_node_module_pkg_name(toolchain, spec)
+        )
+
+        # however, if a -loader suffixed package (i.e. 'text-loader') is
+        # available, the -loader version will be returned instead.
+        create_mock_npm_package(working_dir, 'text-loader', 'index.js')
+        self.assertEqual(
+            'text-loader',
+            text_handler.find_node_module_pkg_name(toolchain, spec)
+        )
+
+    def test_find_node_module_pkg_name_full_suffix(self):
+        remember_cwd(self)
+        # this one is fully named 'text-loader'
+        text_handler = loaderplugin.WebpackLoaderHandler(None, 'text-loader')
+        working_dir = mkdtemp(self)
+        os.chdir(working_dir)
+        toolchain = Toolchain()
+        spec = Spec()
+
+        # base test without any Node.js packages available
+        self.assertEqual(
+            'text-loader',
+            text_handler.find_node_module_pkg_name(toolchain, spec)
+        )
+
+        # not affected by a prefix-free package
+        create_mock_npm_package(working_dir, 'text', 'index.js')
+        self.assertEqual(
+            'text-loader',
+            text_handler.find_node_module_pkg_name(toolchain, spec)
+        )
 
 
 class WebpackModuleLoaderRegistryTestCase(unittest.TestCase):

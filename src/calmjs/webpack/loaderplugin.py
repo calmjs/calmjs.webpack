@@ -13,8 +13,10 @@ from os.path import dirname
 from os.path import exists
 from os.path import join
 
-from calmjs.toolchain import BUILD_DIR
 from calmjs.loaderplugin import ModuleLoaderRegistry
+from calmjs.npm import locate_package_entry_file
+from calmjs.toolchain import BUILD_DIR
+from calmjs.toolchain import WORKING_DIR
 from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.base import CALMJS_WEBPACK_MODULE_LOADER_SUFFIX
 from calmjs.webpack.base import CALMJS_WEBPACK_MODNAME_LOADER_MAP
@@ -135,13 +137,28 @@ class WebpackLoaderHandler(NPMLoaderPluginHandler, BaseWebpackLoaderHandler):
     resolved.
     """
 
-    @property
-    def node_module_pkg_name(self):
-        # TODO figure out how to make this fallback?
-        # i.e. pre-process using locate_package_entry_file?
-        # modify generate_handler_sourcepath so that it calls
-        # a thing that sets a private attribute for this?
-        return self.name + '-loader'
+    # subclasses that expect an explicit npm package name, define this
+    # node_module_pkg_name = ''
+
+    def find_node_module_pkg_name(self, toolchain, spec):
+        # since most loaders end with this suffix, test for that first
+        if self.name.endswith('-loader'):
+            return self.name
+
+        # given that there will be packages that could have been
+        # installed that matches the package name, test for the common
+        # prefix first
+        name = self.name + '-loader'
+        # using the same working_dir derivation method as parent
+        working_dir = spec.get(WORKING_DIR, toolchain.join_cwd())
+        if locate_package_entry_file(working_dir, name):
+            return name
+        elif locate_package_entry_file(working_dir, self.name):
+            return self.name
+
+        # a value must be provided, but to not confuse with the
+        # resolution of the real package, return the suffixed version
+        return name
 
 
 class AutogenWebpackLoaderHandler(WebpackLoaderHandler):

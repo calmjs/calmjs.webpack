@@ -23,6 +23,26 @@ def skip_full_toolchain_test():  # pragma: no cover
     return (False, '')
 
 
+def create_mock_npm_package(
+        working_dir, package_name, entry_point, version='0.0.1'):
+    module_root = join(working_dir, 'node_modules', package_name)
+    module_cfg = join(module_root, 'package.json')
+    module_src = join(module_root, entry_point)
+
+    os.makedirs(module_root)
+    with open(module_cfg, 'w') as fd:
+        json.dump({
+            "name": package_name,
+            "version": version,
+            "main": entry_point,
+        }, fd)
+
+    with open(module_src, 'w') as fd:
+        fd.write("(function(){})();")
+
+    return module_src
+
+
 def cls_setup_webpack_loader_integration_packages(cls):
     # cls.dist_dir created by setup_class_integration_environment
     cls._es_root = join(cls.dist_dir, 'example', 'styledemo')
