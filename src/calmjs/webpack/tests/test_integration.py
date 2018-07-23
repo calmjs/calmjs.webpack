@@ -1647,11 +1647,12 @@ class KarmaToolchainIntegrationTestCase(unittest.TestCase):
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'karma',
-                # TODO remove after release of calmjs.dev-2.2.0, as the
-                # automatic resolution of loaders the test registries
-                # should work, same as below.
-                '--test-registry=calmjs.module.simulated.tests,'
-                'calmjs.module.simulated.tests.webpackloader',
+                # note that the following --test-registry is required
+                # for calmjs-dev<2.2.0, as it does not know about the
+                # correct way to apply test loader repositories until
+                # then.
+                # '--test-registry=calmjs.module.simulated.tests,'
+                # 'calmjs.module.simulated.tests.webpackloader',
                 'webpack', 'example.styledemo',
                 '--export-target=' + export_target,
             ])
@@ -1676,9 +1677,6 @@ class KarmaToolchainIntegrationTestCase(unittest.TestCase):
             runtime.main([
                 'karma', '--coverage', '--cover-test',
                 '--cover-report-dir=' + build_dir,
-                # TODO remove test-registry flag
-                '--test-registry=calmjs.module.simulated.tests,'
-                'calmjs.module.simulated.tests.webpackloader',
                 'webpack', 'example.styledemo',
                 '--export-target=' + export_target,
                 '--build-dir=' + build_dir,
@@ -1714,12 +1712,8 @@ class KarmaToolchainIntegrationTestCase(unittest.TestCase):
             runtime.main([
                 'karma', 'run',
                 '--test-with-package', 'example.styledemo',
-                # note the omitted --test-registry
                 '--artifact', export_target,
                 '--toolchain-package', 'calmjs.webpack',
-                # TODO remove test-registry flag
-                '--test-registry=calmjs.module.simulated.tests,'
-                'calmjs.module.simulated.tests.webpackloader',
             ])
         # tests should pass against the resultant bundle
         self.assertEqual(e.exception.args[0], 0)
