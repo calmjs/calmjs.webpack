@@ -627,7 +627,7 @@ following entry point on the ``calmjs.module.loader`` registry::
 With the above definition, importing stylesheet resources using the
 complete syntax (i.e. ``require('style!css!example/app/style.css');``
 will work, but it is incompatible with the ``require-css`` loader as
-it does not necessarily support the chaining of the ``style`` loader
+it does not necessarily support the chaining of the ``style!`` loader
 prefix as the RequireJS version of the plugin will apply the styles
 immediately without that (this is why the loader-prefixes are considered
 non-portable).
@@ -638,7 +638,7 @@ loaded, so that the loaderprefix-free loading can be achieved (i.e. the
 previous JavaScript fragment).  To specifically support this through
 Calmjs, the resources entry points should be defined under the
 ``calmjs.module.webpackloader`` registry instead of the common
- ``calmjs.module.loader`` registry.  For example:
+``calmjs.module.loader`` registry.  For example:
 
 .. code:: ini
 
@@ -647,35 +647,55 @@ Calmjs, the resources entry points should be defined under the
     example.app = example.app
 
     [calmjs.module.webpackloader]
+    style-loader!css-loader = stylesheet[css]
+    text-loader = txt[txt]
+
+Please note that while it is possible to also define the entry point
+like the following:
+
+.. code:: ini
+
+    [calmjs.module.webpackloader]
     style!css = stylesheet[css]
-    text = txt[txt]
+
+Previously this relies on a legacy behavior which |webpack| removed, but
+it is still supported by |calmjs| and |calmjs.webpack| simply due to the
+generic support of this format, but given that this registry is
+specifically for webpack, there is should be no issue if the webpack
+specific syntax is used, if the following caveats are addressed.
 
 Please note that if a given file name extension is defined on multiple
 webpackloaders (note that the text loader has removed json as a file
 name extension), the resulting behavior is undefined as the generated
 configuration will not guarantee that the loaders are chained together
 in the expected manner, as both loaders will be applied to the selected
-files under an undefined ordering.  If a file name extension defined in
-this is also defined in the ``calmjs.module.loader`` registry, it will
-also cause complications.
+files under an undefined ordering.
+
+Module names exported by the ``calmjs.module.webpackloader`` will not be
+made available the gathered module or import names for the dynamic
+import module when processed by the default loader plugin handlers, as
+there exists a number of subtle complexities that severely complicates
+exposing these names in a meaningful manner for usage within the calmjs
+system.  In effect, no dynamic imports will be possible after the
+construction of the artifact.
+
+If a file name extension defined in this is also defined in the
+``calmjs.module.loader`` registry, it will also cause complications if
+the dynamic import module was also generated.  This issue is related to
+the issue outlined by the previous paragraph.
 
 If multiple loaders are required (such as for the case of stylesheets),
-use the chained syntax as in the ``style!css`` definition to ensure that
-they are applied correctly, much like they would have been if they were
-prefixed on the imports directly for this particular Python package.
+use the chained syntax as in the ``style-loader!css-loader`` definition
+to ensure that they are applied correctly, much like they would have
+been if they were prefixed on the imports directly for this particular
+Python package (i.e. ``style!css!``).
 
 Much like the standard ``calmjs.module.loader`` registry, the
-definitions to the filename extensions are local to the package, so that
-definitions that make use of a different set of loaders from an upstream
-or downstream package will not cause interference with how they are
-applied.
-
-Also note that this registry will not make available the gathered module
-or import names for the dynamic module imports by the default loader
-plugin handlers, as there exists a number of subtle complexities that
-severely complicates exposing these names in a meaningful manner for
-usage within the calmjs system.  In effect, no dynamic imports will be
-possible after the construction of the artifact.
+definitions for any given filename extensions declared under the
+``calmjs.module.webpackloader`` registry are local to the package, so
+that definitions that make use of a different set of loaders from an
+upstream or downstream package will not cause interference with how they
+are applied.
 
 Testing standalone, finalized webpack artifacts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
