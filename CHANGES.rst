@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.1.0 (Unreleased)
+1.1.0 (2018-07-25)
 ------------------
 
 - Provide support of prefix-free loaders through a customized webpack
