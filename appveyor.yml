@@ -25,7 +25,7 @@ test_script:
   # verify tests working without optional dependencies
   - python -m unittest calmjs.webpack.tests.make_suite
   # run the full test suite using all optional dependencies
-  - pip install calmjs.dev
+  - pip install -e .[dev]
   - coverage run --include=src/* -m unittest calmjs.webpack.tests.make_suite
   - coverage report -m
 
