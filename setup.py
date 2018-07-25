@@ -69,20 +69,26 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'calmjs>=3.0.0dev',
-        'calmjs.parse',
+        'calmjs>=3.3.0dev',
     ],
     extras_require={
         'dev': [
-            'calmjs.dev>=2.0.0,<3',
+            'calmjs.dev>=2.2.0,<3',
         ],
     },
     entry_points={
         'calmjs.registry': [
             'calmjs.webpack.loaderplugins = '
             'calmjs.webpack.loaderplugin:AutogenWebpackLoaderPluginRegistry',
+
             'calmjs.webpack.static.loaderplugins = '
             'calmjs.loaderplugin:LoaderPluginRegistry',
+
+            'calmjs.module.webpackloader = '
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
+
+            'calmjs.module.tests.webpackloader = '
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
         ],
         'calmjs.webpack.static.loaderplugins': [
             'text = calmjs.webpack.loaderplugin:WebpackLoaderHandler',

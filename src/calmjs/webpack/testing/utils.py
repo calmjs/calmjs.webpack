@@ -13,7 +13,6 @@ from pkg_resources import resource_filename
 from calmjs.registry import get as get_registry
 from calmjs.testing import utils
 from calmjs.npm import get_npm_version
-from calmjs import dist as calmjs_dist
 
 
 def skip_full_toolchain_test():  # pragma: no cover
@@ -22,6 +21,163 @@ def skip_full_toolchain_test():  # pragma: no cover
     if os.environ.get('SKIP_FULL'):
         return (True, 'skipping due to SKIP_FULL environment variable')
     return (False, '')
+
+
+def create_mock_npm_package(
+        working_dir, package_name, entry_point, version='0.0.1'):
+    module_root = join(working_dir, 'node_modules', package_name)
+    module_cfg = join(module_root, 'package.json')
+    module_src = join(module_root, entry_point)
+
+    os.makedirs(module_root)
+    with open(module_cfg, 'w') as fd:
+        json.dump({
+            "name": package_name,
+            "version": version,
+            "main": entry_point,
+        }, fd)
+
+    with open(module_src, 'w') as fd:
+        fd.write("(function(){})();")
+
+    return module_src
+
+
+def cls_setup_webpack_loader_integration_packages(cls):
+    # cls.dist_dir created by setup_class_integration_environment
+    cls._es_root = join(cls.dist_dir, 'example', 'styledemo')
+    # make the testdir also
+    makedirs(join(cls._es_root, 'tests'))
+
+    # TODO should move this to a different function
+    utils.make_dummy_dist(None, (
+        ('entry_points.txt', '\n'.join([
+            '[calmjs.registry]',
+            cls.registry_name + '.webpackloader = ' +
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
+
+            cls.registry_name + '.tests.webpackloader = ' +
+            'calmjs.webpack.loaderplugin:WebpackModuleLoaderRegistry',
+
+        ])),
+    ), 'calmjs.webpack.simulated', '420', working_dir=cls.dist_dir)
+
+    index_js = join(cls._es_root, 'index.js')
+    with open(index_js, 'w') as fd:
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'require("example/styledemo/index.css")\n'
+            '\n'
+            'exports.toast = function(msg) {\n'
+            '    console.log("popped some toasted messages");\n'
+            '    return msg;\n'
+            '};\n'
+        )
+
+    # definitely need to also pass this through karma integration tests
+    # as the module.rules may conflict, and that ensure the css files do
+    # NOT get further rules applied for coverage reporting as that can
+    # complicate things.
+    test_index_js = join(cls._es_root, 'tests', 'test_index.js')
+    with open(test_index_js, 'w') as fd:
+        # TODO include a test on application of stylesheet?
+        fd.write(
+            '"use strict";\n'
+            '\n'
+            'var styledemo = require("example/styledemo/index");\n'
+            'var text = require("example/styledemo/tests/hello.txt");\n'
+            '\n'
+            'describe("styling test cases", function() {\n'
+            '    afterEach(function() {\n'
+            '        document.body.innerHTML = ""\n'
+            '    });\n'
+            '\n'
+            '    it("we got toast", function() {\n'
+            '        expect(styledemo.toast("toast")).equal("toast");\n'
+            '    });\n'
+            '\n'
+            '    it("text is hello", function() {\n'
+            '        expect(text).equal("hello world");\n'
+            '    });\n'
+            '\n'
+            '    it("styles are available", function() {\n'
+            '        document.body.innerHTML = \'<div id="root"></div>\';\n'
+            '        var element = document.getElementById("root");\n'
+            '        element.setAttribute("class", "body");\n'
+            '        var style = window.getComputedStyle(element);\n'
+            '        expect(style.getPropertyValue(\n'
+            '            "background-color")).equal("rgb(204, 204, 204)");\n'
+            '        element.setAttribute("class", "div");\n'
+            '        var style = window.getComputedStyle(element);\n'
+            '        expect(style.getPropertyValue(\n'
+            '            "background-color")).equal("rgb(238, 238, 238)");\n'
+            '    });\n'
+            '});\n'
+        )
+
+    index_css = join(cls._es_root, 'index.css')
+    with open(index_css, 'w') as fd:
+        fd.write(
+            "@import url('example/styledemo/extra.css');\n"
+            '\n'
+            '.body { background: #ccc; }\n'
+            '.div { background: #eee; }\n'
+        )
+
+    extra_css = join(cls._es_root, 'extra.css')
+    with open(extra_css, 'w') as fd:
+        fd.write(
+            '.table { border: 1px solid #000; }\n'
+            '.tr { border: 1px solid #f00; }\n'
+        )
+
+    with open(join(cls._es_root, 'tests', 'hello.txt'), 'w') as fd:
+        fd.write('hello world')
+
+    # tie everything together with the webpackloader registry
+    utils.make_dummy_dist(None, (
+        ('requires.txt', ''),
+        ('package.json', json.dumps({
+            'dependencies': {
+                'style-loader': '~0.21.0',
+                'css-loader': '~0.28.11',
+            },
+            'devDependencies': {
+                'text-loader': '~0.0.1',
+            },
+        })),
+        ('calmjs_module_registry.txt', '\n'.join([
+            cls.registry_name,
+            # note that this may become optionally specified, perhaps
+            # remove it when that time comes.
+            # TODO remove when implied subregistries is implemented
+            cls.registry_name + '.webpackloader',
+        ])),
+        # throw in some .tests.webpackloader under the tests too?
+        # or also .tests.loader
+        ('entry_points.txt', (
+            '[{0}]\n'
+            'example.styledemo = example.styledemo\n'
+            '[{0}.tests]\n'
+            'example.styledemo.tests = example.styledemo.tests\n'
+            '[{0}.webpackloader]\n'
+            'style!css = stylesheets[css]\n'
+            '[{0}.tests.webpackloader]\n'
+            'text-loader = text[txt]\n'.format(cls.registry_name)
+        )),
+    ), 'example.styledemo', '1.0', working_dir=cls.dist_dir)
+
+    # re-add dist_dir to working set
+    cls.working_set.add_entry(cls.dist_dir)
+
+    utils.instantiate_integration_registries(
+        cls.working_set, cls.root_registry,
+        cls.registry_name,
+        cls.registry_name + '.tests',
+        cls.registry_name + '.webpackloader',
+        cls.registry_name + '.tests.webpackloader',
+    )
 
 
 def cls_setup_webpack_example_package(cls):
@@ -277,7 +433,8 @@ def cls_setup_webpack_example_package(cls):
     with open(json_data, 'w') as fd:
         fd.write('{"value": "hello"}')
 
-    # create a mock distribution for loaderplugins
+    # create a mock distribution for loaderplugins integration with
+    # various webpack loaders
     utils.make_dummy_dist(None, (
         ('requires.txt', ''),
         ('calmjs_module_registry.txt', cls.registry_name),
@@ -304,8 +461,16 @@ def cls_setup_webpack_example_package(cls):
     ), 'calmjs.webpack', '0.0', working_dir=cls.dist_dir)
 
     # re-add it again
-    calmjs_dist.default_working_set.add_entry(cls.dist_dir)
-    # TODO produce package_module_map
+    cls.working_set.add_entry(cls.dist_dir)
+
+    # Under typical circumstances, we can do this
+    # utils.instantiate_integration_registries(
+    #     cls.working_set, cls.root_registry,
+    #     cls.registry_name,
+    #     cls.registry_name + '.tests',
+    # )
+    # However, we have existing sources that are to be omitted under
+    # most typical tests, hence a manual approach is done.
 
     registry = get_registry(cls.registry_name)
     record = registry.records['example.package'] = {}

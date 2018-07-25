@@ -27,10 +27,12 @@ from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
 from calmjs.webpack.base import VERIFY_IMPORTS
 
 from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
+
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
 from calmjs.webpack.toolchain import WebpackToolchain
+from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
 
 from calmjs.webpack.dist import generate_transpile_sourcepaths
 from calmjs.webpack.dist import generate_bundle_sourcepaths
@@ -245,13 +247,20 @@ def create_spec(
     spec[VERIFY_IMPORTS] = verify_imports
     spec[CALMJS_LOADERPLUGIN_REGISTRY_NAME] = calmjs_loaderplugin_registry_name
 
-    spec_update_sourcepath_filter_loaderplugins(
-        spec, generate_transpile_sourcepaths(
-            package_names=package_names,
-            registries=source_registries,
-            method=sourcepath_method,
-        ), 'transpile_sourcepath',
+    raw_transpile_sourcepaths = generate_transpile_sourcepaths(
+        package_names=package_names,
+        registries=source_registries,
+        method=sourcepath_method,
     )
+
+    # filter out the WebpackModuleLoaderRegistryKey so that they are
+    # registered properly onto the spec for further processing using the
+    # helpers in the loaderplugin module for this package.
+    transpile_sourcepaths = normalize_and_register_webpackloaders(
+        spec, raw_transpile_sourcepaths)
+
+    spec_update_sourcepath_filter_loaderplugins(
+        spec, transpile_sourcepaths, 'transpile_sourcepath')
 
     spec_update_sourcepath_filter_loaderplugins(
         spec, generate_bundle_sourcepaths(

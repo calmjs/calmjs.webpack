@@ -21,25 +21,11 @@ from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
 
 from calmjs.testing import utils
 from calmjs.testing import mocks
+from calmjs.webpack.testing.utils import create_mock_npm_package
 
 
 def mock_text_loader(working_dir):
-    module_root = join(working_dir, 'node_modules', 'text-loader')
-    module_cfg = join(module_root, 'package.json')
-    module_src = join(module_root, 'text.js')
-
-    # create the dummy text-loader package.json entry, using just the
-    # bare required information from the real package.
-    os.makedirs(module_root)
-    with open(module_cfg, 'w') as fd:
-        json.dump({
-            "name": "text-loader",
-            "version": "0.0.1",
-            "main": "index.js",
-            "license": "ISC",
-        }, fd)
-
-    return module_src
+    return create_mock_npm_package(working_dir, 'text-loader', 'text.js')
 
 
 class CheckNameTestCase(unittest.TestCase):

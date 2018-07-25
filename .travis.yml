@@ -37,15 +37,19 @@ matrix:
     - language: node_js
       node_js: 4.9
       os: osx
-      env: TRAVIS_PYTHON_VERSION=3.4.5
+      env: TRAVIS_PYTHON_VERSION=3.4.8
     - language: node_js
       node_js: 6.14
       os: osx
-      env: TRAVIS_PYTHON_VERSION=3.5.3
+      env: TRAVIS_PYTHON_VERSION=3.5.5
     - language: node_js
       node_js: 8.11
       os: osx
-      env: TRAVIS_PYTHON_VERSION=3.6.0
+      env: TRAVIS_PYTHON_VERSION=3.6.6
+    - language: node_js
+      node_js: 10
+      os: osx
+      env: TRAVIS_PYTHON_VERSION=3.7.0
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
@@ -82,7 +86,7 @@ script:
   # run the first test without calmjs.dev.
   - python -m unittest calmjs.webpack.tests.make_suite
   # run the real test with all optional dependencies.
-  - pip install calmjs.dev
+  - pip install -e .[dev]
   - coverage run --include=src/* -m unittest calmjs.webpack.tests.make_suite
   - coverage report -m
 after_success:

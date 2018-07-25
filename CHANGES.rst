@@ -4,6 +4,19 @@ Changelog
 1.1.0 (Unreleased)
 ------------------
 
+- Provide support of prefix-free loaders through a customized webpack
+  loader module registry; this one also works in tandem with the
+  ``calmjs.module`` registry.  [
+  `#5 <https://github.com/calmjs/calmjs.webpack/issues/5>`_
+  ]
+
+  - Integrate the support of the package resource loader registry
+    introduced by ``calmjs-3.3.0``.
+  - Bumped supported ``calmjs.dev`` to version 2.2.0 such that the
+    correct test loader registries can be automatically acquired.  This
+    also makes it possible to declare test data files as resources for
+    JavaScript tests in the most straightforward manner as possible
+
 - The base loader plugin handler will also generate a modname prefixed
   with ``./``, in an attempt to provide a more natural include mechanism
   from within certain webpack loader contexts, as a number of them will
