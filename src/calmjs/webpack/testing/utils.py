@@ -544,7 +544,7 @@ def generate_example_bundles(cls):
     names = {n: join(bundle_dir, n + '.js') for n in keys}
     # for later verification
     examples = resource_filename('calmjs.webpack.testing', 'examples')
-    prebuilts = {n: join(examples, n + '.js') for n in keys}
+    prebuilts = {n: (examples, n + '.js') for n in keys}
 
     # first test, build just the example_package.
     transpile_sourcepath.update(cls._example_package_map)

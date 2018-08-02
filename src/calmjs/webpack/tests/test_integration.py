@@ -5,6 +5,7 @@ import unittest
 import codecs
 import json
 import os
+import re
 import sys
 from os.path import exists
 from os.path import join
@@ -14,6 +15,7 @@ from textwrap import dedent
 from calmjs.toolchain import Spec
 from calmjs.npm import Driver
 from calmjs.cli import node
+from calmjs.cli import get_bin_version_str
 from calmjs import runtime
 from calmjs.utils import pretty_logging
 from calmjs.registry import get as get_registry
@@ -480,8 +482,18 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # up with the prebuilt ones stored in examples at the source
         # tree level.
         rv = ReprWalker()
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        version = re.search(
+            r'([0-9]+\.[0-9]+)', get_bin_version_str(webpack.which())
+        ).groups()[0]
         for key in keys:
-            with codecs.open(prebuilts[key], encoding='utf8') as fd:
+            base, target = prebuilts[key]
+            prebuilt_path = join(base, version, target)
+            if not exists(prebuilt_path):  # pragma: no cover
+                raise unittest.SkipTest(
+                    'prebuilt %s missing; skipping' % prebuilt_path)
+            with codecs.open(prebuilt_path, encoding='utf8') as fd:
                 prebuilt = rv.walk(parse(fd.read()))
                 generated = rv.walk(parse(contents[key]))
                 self.assertEqual(prebuilt, generated)
@@ -1352,7 +1364,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         for k in keys:
             self.assertEqual(sorted(answer), sorted(f(parse(results[k]))))
 
-    def test_prebuilts(self):
+    def test_contents(self):
         keys, names, prebuilts, contents = generate_example_bundles(self)
 
         self.assertPrebuilts([

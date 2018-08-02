@@ -16,13 +16,16 @@ def read(p):
         return fd.read()
 
 
+# the versions of examples we have generated for and stored statically
+# in this package
+_versions = ['2.6']
 _root = resource_filename('calmjs.webpack.testing', 'examples')
 _empty = parse(read(join(_root, 'empty_package.js')))
-_base = [parse(read(join(_root, f))) for f in (
+_base = [parse(read(join(_root, v, f))) for v in _versions for f in (
     'example_package.js',
     'example_package.min.js',
 )]
-_extras = [parse(read(join(_root, f))) for f in (
+_extras = [parse(read(join(_root, v, f))) for v in _versions for f in (
     'example_package.extras.js',
     'example_package.extras.min.js',
 )]
@@ -58,10 +61,11 @@ class WebpackTestCase(unittest.TestCase):
 
     def test_probe_failure(self):
         # simply TypeError is raised
-        with self.assertRaises(TypeError):
-            interrogation.probe_calmjs_webpack_module_names(parse(read(join(
-                _root, 'example_package.js')).replace(
-                '__calmjs__', '__not_calmjs__')))
+        for v in _versions:
+            with self.assertRaises(TypeError):
+                interrogation.probe_calmjs_webpack_module_names(parse(read(
+                    join(_root, v, 'example_package.js')).replace(
+                    '__calmjs__', '__not_calmjs__')))
 
     def test_identifier_extraction_typical(self):
         # There will be cases where the module names provided are rather
