@@ -16,6 +16,7 @@ from os.path import exists
 from os.path import normpath
 
 from calmjs.exc import ToolchainAbort
+from calmjs.cli import get_bin_version_str
 from calmjs.toolchain import ARTIFACT_PATHS
 from calmjs.toolchain import BUILD_DIR
 from calmjs.toolchain import TEST_MODULE_PATHS_MAP
@@ -48,11 +49,13 @@ from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
+from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
 from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
 from calmjs.webpack.manipulation import convert_dynamic_require_unparser
+from calmjs.webpack.configuration import clean_config
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +365,10 @@ def karma_webpack(spec, toolchain=None):
         # with the assumption that the __calmjs_loader__ is available at
         # that specific location - as standard standalone webpack has no
         # visible external interfaces like this.
-        externals = {"__calmjs_loader__": {"root": ["__calmjs__"]}}
+        externals = {}
+        externals.update({
+            "__calmjs_loader__": DEFAULT_BOOTSTRAP_EXPORT_CONFIG,
+        })
         for p in spec.get(ARTIFACT_PATHS, ()):
             logger.debug('processing artifact file %r', p)
             with codecs.open(p, encoding='utf8') as fd:
@@ -370,7 +376,14 @@ def karma_webpack(spec, toolchain=None):
                     for module_name in probe_calmjs_webpack_module_names(
                             parse(fd.read())):
                         externals[module_name] = {
-                            "root": ["__calmjs__", "modules", module_name]
+                            "root": ["__calmjs__", "modules", module_name],
+                            "amd": ["__calmjs__", "modules", module_name],
+                            "commonjs": [
+                                "global", "__calmjs__", "modules", module_name
+                            ],
+                            "commonjs2": [
+                                "global", "__calmjs__", "modules", module_name
+                            ],
                         }
                 except TypeError:
                     logger.warning(
@@ -394,6 +407,12 @@ def karma_webpack(spec, toolchain=None):
                 "alias": {},
             },
         }
+        fake_spec = {}
+        if toolchain.webpack_bin_key in spec:
+            fake_spec[toolchain.webpack_bin_key] = spec[
+                toolchain.webpack_bin_key]
+        version = get_bin_version_str(toolchain.prepare_binary(fake_spec))
+        clean_config(config['webpack'], version)
 
     test_files = _generate_test_files(toolchain, spec)
     _apply_coverage(toolchain, spec)

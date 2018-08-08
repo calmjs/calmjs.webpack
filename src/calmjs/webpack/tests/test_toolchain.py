@@ -117,6 +117,10 @@ class ToolchainUnitTestCase(unittest.TestCase):
     Just testing out the toolchain units.
     """
 
+    def setUp(self):
+        utils.stub_item_attr_value(
+            self, toolchain, 'get_bin_version_str', lambda p: '1.0.0')
+
     def test_prepare_failure_manual(self):
         webpack = toolchain.WebpackToolchain()
         spec = Spec(toolchain_bin_path='/no/such/path')
@@ -889,6 +893,10 @@ class ToolchainCompileLoaderTestCase(unittest.TestCase):
         # mock the webpack executable
         with open(join(self.build_dir, 'webpack'), 'w'):
             pass
+
+        # also stub the version finding.
+        utils.stub_item_attr_value(
+            self, toolchain, 'get_bin_version_str', lambda p: '1.0.0')
 
     def test_compile_plugin_base(self):
         working_dir = utils.mkdtemp(self)

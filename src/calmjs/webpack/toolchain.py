@@ -19,6 +19,7 @@ from os.path import pathsep
 from subprocess import call
 
 from calmjs.types.exceptions import ToolchainAbort
+from calmjs.cli import get_bin_version_str
 from calmjs.toolchain import ES5Toolchain
 from calmjs.toolchain import ToolchainSpecCompileEntry
 from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
@@ -39,6 +40,7 @@ from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
+from calmjs.webpack.configuration import clean_config
 
 from .dev import webpack_advice
 from .env import webpack_env
@@ -527,6 +529,13 @@ class WebpackToolchain(ES5Toolchain):
 
         update_spec_webpack_loaders_modules(spec, alias)
         webpack_config['module']['rules'] = spec.get(WEBPACK_MODULE_RULES, [])
+
+        version = get_bin_version_str(spec[self.webpack_bin_key])
+        logger.debug(
+            "found webpack at '%s' to be version '%s'",
+            spec[self.webpack_bin_key], version
+        )
+        clean_config(webpack_config, version)
 
         # write the configuration file, after everything is checked.
         self.write_webpack_config(spec, webpack_config)
