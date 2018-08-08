@@ -225,7 +225,7 @@ class WebpackToolchain(ES5Toolchain):
         return super(WebpackToolchain, self).transpile_modname_source_target(
             spec, modname, source, target)
 
-    def prepare(self, spec):
+    def prepare_binary(self, spec):
         """
         Attempts to locate the webpack binary if not already specified;
         raise WebpackRuntimeError if that is not found.
@@ -246,6 +246,17 @@ class WebpackToolchain(ES5Toolchain):
                     self.webpack_bin
                 )
             )
+        # version verification is done in assemble, as the configuration
+        # settings required will only be needed then.
+        return spec[self.webpack_bin_key]
+
+    def prepare(self, spec):
+        """
+        Attempts to locate the webpack binary if not already specified;
+        raise WebpackRuntimeError if that is not found.
+        """
+
+        self.prepare_binary(spec)
 
         spec['webpack_config_js'] = join(
             spec[BUILD_DIR], self.webpack_config_name)
