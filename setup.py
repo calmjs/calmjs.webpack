@@ -69,11 +69,11 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        'calmjs>=3.3.0dev',
+        'calmjs>=3.3.0',
     ],
     extras_require={
         'dev': [
-            'calmjs.dev>=2.2.0,<3',
+            'calmjs.dev>=2.2.1,<3',
         ],
     },
     entry_points={

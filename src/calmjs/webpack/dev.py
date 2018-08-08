@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import codecs
 import json
 import logging
+from functools import partial
 from os import makedirs
 from os.path import basename
 from os.path import dirname
@@ -50,6 +51,7 @@ from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 from calmjs.webpack.base import WEBPACK_SINGLE_TEST_BUNDLE
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
+from calmjs.webpack.base import WEBPACK_KARMA_CONF_TEMPLATE
 from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
@@ -302,6 +304,10 @@ def _apply_webpack_module_rules(webpack_config):
     return rules
 
 
+def _config_writer(toolchain, config, fd):
+    fd.write(WEBPACK_KARMA_CONF_TEMPLATE % toolchain.dumps(config))
+
+
 def karma_webpack(spec, toolchain=None):
     """
     An advice for the karma runtime before execution of karma that is
@@ -416,6 +422,8 @@ def karma_webpack(spec, toolchain=None):
 
     test_files = _generate_test_files(toolchain, spec)
     _apply_coverage(toolchain, spec)
+
+    spec[karma.KARMA_CONFIG_WRITER] = partial(_config_writer, toolchain)
 
     # purge all files
     files = config['files'] = []
