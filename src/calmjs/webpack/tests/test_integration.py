@@ -59,7 +59,9 @@ def run_webpack(script, *artifacts):
     # environment within a browser.
 
     stream = StringIO()
+    # webpack 4 used window as the argument, so match it.
     stream.write("var window = new (function(require, exports, module) {\n")
+    stream.write("    var window = this;\n")
     for artifact in artifacts:
         with codecs.open(artifact, encoding='utf8') as fd:
             stream.write(fd.read())
@@ -219,6 +221,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # got exported due to how webpack collapse the generation in the
         # umd template for maximum confusion.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s;
         console.log(Object.keys(artifact).length);
         """, export_target)
@@ -294,6 +297,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # the standard require/commonjs loading should work, as it
         # should not have any externals.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var main = artifact.modules["example/package/main"];
         main.main();
@@ -333,6 +337,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var bare = artifact.modules["example/package/bare"];
         console.log(bare.clean(1));
@@ -378,6 +383,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var raw = artifact.modules["text!example/loader/single.json"];
         console.log(raw);
@@ -428,6 +434,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var raw = artifact.modules["text!example/loader/single.json"];
         console.log(raw);
@@ -596,6 +603,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # This bundle will not actually run; for the actual testing, the
         # calmjs.dev integration tests provide it.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s;
         """, export_target)
         self.assertNotEqual(stderr, '')
@@ -704,6 +712,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # The execution should export all the modules to just that
         # target, with modules simply be available at modules.
         stdout, stderr = run_node("""
+        var window = {};
         var service = %s
         var rpclib = service.modules["service/rpc/lib"];
         console.log(rpclib.Library);
@@ -882,6 +891,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # when explicit bundling is none, with how this package is set
         # up without node_modules, webpack will simply treat the import
         # it cannot locate as an error.
+        # however, if webpack _does_ locate the real underscore package
+        # in some node_modules directory nested somewhere above the
+        # working directory, this will in fact succeed.
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'webpack', 'widget',
