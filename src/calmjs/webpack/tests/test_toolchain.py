@@ -8,6 +8,8 @@ from os.path import exists
 from os.path import join
 
 from calmjs.loaderplugin import LoaderPluginRegistry
+from calmjs.parse import asttypes
+from calmjs.parse.parsers.es5 import read as read_es5
 from calmjs.parse.exceptions import ECMASyntaxError
 from calmjs.utils import pretty_logging
 from calmjs.toolchain import Spec
@@ -18,6 +20,7 @@ from calmjs.npm import get_npm_version
 from calmjs.webpack import toolchain
 from calmjs.webpack.base import WEBPACK_RESOLVELOADER_ALIAS
 from calmjs.webpack.loaderplugin import AutogenWebpackLoaderPluginRegistry
+from calmjs.webpack.interrogation import walker
 
 from calmjs.testing import utils
 from calmjs.testing import mocks
@@ -26,6 +29,12 @@ from calmjs.webpack.testing.utils import create_mock_npm_package
 
 def mock_text_loader(working_dir):
     return create_mock_npm_package(working_dir, 'text-loader', 'text.js')
+
+
+def extract_webpack_config_object(fd):
+    tree = read_es5(fd)
+    obj = walker.extract(tree, lambda node: isinstance(node, asttypes.Object))
+    return json.loads(str(obj))
 
 
 class CheckNameTestCase(unittest.TestCase):
@@ -214,8 +223,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
 
         with open(join(tmpdir, 'config.js')) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
 
         self.assertEqual(config_js['output'], {
             "path": tmpdir,
@@ -269,8 +277,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
 
         with open(join(tmpdir, 'config.js')) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
 
         self.assertEqual(config_js['output'], {
             "path": tmpdir,
@@ -346,8 +353,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         with open(join(tmpdir, 'config.js')) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
         self.assertEqual(config_js, spec['webpack_config'])
 
         # the bootstrap is generated and is the entry point.
@@ -490,8 +496,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         with open(join(tmpdir, 'config.js')) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
         self.assertEqual(config_js, spec['webpack_config'])
 
         with open(config_js['entry']) as fd:
@@ -587,8 +592,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         with open(join(tmpdir, 'config.js')) as fd:
-            # strip off the header and footer
-            config = json.loads(''.join(fd.readlines()[5:-6]))
+            config = extract_webpack_config_object(fd)
         self.assertEqual(config, spec['webpack_config'])
 
         # the bootstrap is generated and is the entry point.
@@ -675,10 +679,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # check that they all exists
         self.assertTrue(exists(config_js))
 
-        # TODO use parser to parse this.
         with open(config_js) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
 
         self.assertIn('WARNING', s.getvalue())
         self.assertIn(
@@ -783,10 +785,8 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # check that they all exists
         self.assertTrue(exists(config_js))
 
-        # TODO use parser to parse this.
         with open(config_js) as fd:
-            # strip off the header and footer
-            config_js = json.loads(''.join(fd.readlines()[5:-6]))
+            config_js = extract_webpack_config_object(fd)
 
         self.assertNotIn('WARNING', s.getvalue())
 
