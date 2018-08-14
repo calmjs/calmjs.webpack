@@ -7,13 +7,17 @@ import json
 from io import StringIO
 
 from calmjs.parse import io
+from calmjs.parse import asttypes
 from calmjs.parse.parsers.es5 import parse as es5
 from calmjs.parse.unparsers.es5 import pretty_print
 
-from calmjs.webpack.manipulation import create_calmjs_require
-from calmjs.webpack.manipulation import extract_dynamic_require
-from calmjs.webpack.manipulation import convert_dynamic_require
-from calmjs.webpack.manipulation import convert_dynamic_require_unparser
+from calmjs.webpack.manipulation import (
+    create_calmjs_require,
+    extract_dynamic_require,
+    convert_dynamic_require,
+    convert_dynamic_require_unparser,
+    inject_array_items_to_object_property_value,
+)
 
 
 def parse_first_expr(src):
@@ -238,3 +242,29 @@ class UnparserTestCase(unittest.TestCase):
             'sources': ['source.js'],
             'version': 3,
         }, json.loads(srcmap.getvalue()))
+
+
+class InjectArrayTestCase(unittest.TestCase):
+    # only test supported usage cases; there are _many_ unsupported
+    # cases.
+
+    def test_inject_existing(self):
+        object_ = parse_first_expr('obj = {"foo": [1]};').right
+        array = parse_first_expr('[2, 3]')
+        key = asttypes.String('"foo"')
+        inject_array_items_to_object_property_value(object_, key, array)
+        self.assertEqual(textwrap.dedent("""
+        {
+          "foo": [2, 3, 1]
+        }""").strip(), str(object_))
+
+    def test_inject_new(self):
+        object_ = parse_first_expr('obj = {"foo": [1]};').right
+        array = parse_first_expr('[2, 3]')
+        key = asttypes.Identifier('bar')
+        inject_array_items_to_object_property_value(object_, key, array)
+        self.assertEqual(textwrap.dedent("""
+        {
+          "foo": [1],
+          bar: [2, 3]
+        }""").strip(), str(object_))
