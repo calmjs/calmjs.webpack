@@ -6,6 +6,8 @@ from textwrap import dedent
 
 from calmjs.parse import asttypes
 from calmjs.webpack import configuration
+from calmjs.utils import pretty_logging
+from calmjs.testing.mocks import StringIO
 
 
 class CleanConfigTestCase(unittest.TestCase):
@@ -155,3 +157,109 @@ class ConfigObjectTestCase(unittest.TestCase):
         };
         module.exports = webpackConfig;
         """).lstrip(), str(config))
+
+    def test_export_config_mode_versions(self):
+        config = configuration.WebpackConfig(
+            mode='none',
+        )
+        self.assertIn('"mode": "none"', str(config))
+
+        # downgrade webpack version
+        config['__webpack_target__'] = (2, 6, 1)
+        with pretty_logging(stream=StringIO()) as fd:
+            # default mode value should not be seralized
+            config_str = str(config)
+            self.assertNotIn('"mode": "none"', config_str)
+            self.assertIn("var webpackConfig = {}", config_str)
+        self.assertIn(
+            'INFO calmjs.webpack.configuration unsupported property with '
+            'default value removed for webpack 2.6.1: {"mode": "none"}',
+            fd.getvalue()
+        )
+
+        # change mode to a non-default value
+        config['mode'] = 'production'
+        with pretty_logging(stream=StringIO()) as fd:
+            # default mode value should not be seralized
+            config_str = str(config)
+            self.assertNotIn('"mode": "production"', config_str)
+            self.assertIn("var webpackConfig = {}", config_str)
+        self.assertIn(
+            'WARNING calmjs.webpack.configuration unsupported property with '
+            'non-default value removed for webpack 2.6.1: '
+            '{"mode": "production"}',
+            fd.getvalue()
+        )
+
+    def test_export_config_rules(self):
+        config = configuration.WebpackConfig(
+            module={
+                "rules": [],
+            },
+        )
+        # the disabling rule gets injected
+        with pretty_logging(stream=StringIO()) as fd:
+            self.assertIn('type: "javascript/auto"', str(config))
+        self.assertIn(
+            'INFO calmjs.webpack.configuration disabling default json '
+            'loader module rule for webpack 4.0.0', fd.getvalue()
+        )
+
+        # downgrade webpack version
+        config['__webpack_target__'] = (2, 6, 1)
+        with pretty_logging(logger='calmjs.webpack', stream=StringIO()) as fd:
+            self.assertNotIn('type: "javascript/auto"', str(config))
+
+        self.assertEqual('', fd.getvalue())
+
+    def test_export_config_optimization(self):
+        config = configuration.WebpackConfig(
+            optimization={"minimize": True},
+        )
+        # standard optimization setting is kept for latest webpack
+        with pretty_logging(logger='calmjs.webpack', stream=StringIO()) as fd:
+            config_s = str(config)
+            self.assertIn('"optimization": {', config_s)
+            self.assertIn('"minimize": true', config_s)
+
+        self.assertEqual('', fd.getvalue())
+
+        # downgrade webpack version
+        config['__webpack_target__'] = (2, 6, 1)
+        with pretty_logging(logger='calmjs.webpack', stream=StringIO()) as fd:
+            config_s = str(config)
+            self.assertNotIn('"optimization": {', config_s)
+            self.assertNotIn('"minimize": true', config_s)
+            self.assertIn('"plugins": [', config_s)
+            self.assertIn('new webpack.optimize.UglifyJsPlugin({})', config_s)
+
+        self.assertIn(
+            "converting unsupported property to a plugin for "
+            "webpack 2.6.1: {", fd.getvalue())
+        self.assertIn('"minimize": true', fd.getvalue())
+
+        # set minimize to false
+        config['optimization']["minimize"] = False
+        with pretty_logging(logger='calmjs.webpack', stream=StringIO()) as fd:
+            config_s = str(config)
+            self.assertNotIn('"optimization": {', config_s)
+            self.assertNotIn('"minimize": true', config_s)
+            self.assertNotIn('"plugins": [', config_s)
+
+        self.assertIn(
+            "dropping unsupported property for webpack 2.6.1: {",
+            fd.getvalue())
+        self.assertIn('"minimize": false', fd.getvalue())
+
+        # set minimize to an unsupported value
+        config['optimization']["minimize"] = {}
+        with pretty_logging(logger='calmjs.webpack', stream=StringIO()) as fd:
+            config_s = str(config)
+            self.assertNotIn('"optimization": {', config_s)
+            self.assertNotIn('"minimize": true', config_s)
+            self.assertNotIn('"plugins": [', config_s)
+
+        self.assertIn(
+            "dropping unsupported property for webpack 2.6.1: {",
+            fd.getvalue())
+        self.assertIn('"minimize": {}', fd.getvalue())

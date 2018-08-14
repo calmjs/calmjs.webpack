@@ -3,6 +3,7 @@
 Various utility functions
 """
 
+import logging
 from collections import MutableMapping
 from collections import MutableSequence
 from json import dumps
@@ -28,6 +29,11 @@ from calmjs.parse.walkers import ReprWalker
 
 from calmjs.webpack.base import DEFAULT_WEBPACK_MODE
 from calmjs.webpack.interrogation import walker
+from calmjs.webpack.manipulation import (
+    inject_array_items_to_object_property_value,
+)
+
+logger = logging.getLogger(__name__)
 
 config_definitions = dict(**definitions)
 config_definitions.update({
@@ -70,6 +76,20 @@ var webpack = require('webpack');
 var webpackConfig = {};
 module.exports = webpackConfig;
 """
+
+_WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = """
+[{
+    test: /\.(json|html)/,
+    type: "javascript/auto",
+    use: [],
+}]
+"""
+
+# default list of webpack config plugins
+_WEBPACK_CONFIG_PLUGINS = (
+    # TODO figure out how to deal with chunking configuration
+    'new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})',
+)
 
 
 def identity(value):
@@ -218,8 +238,114 @@ class WebpackConfig(MutableMapping):
                 left=asttypes.String('"%s"' % key), op=':',
                 right=value.export(),
             ))
-        config_object_node.properties = webpack_object.properties
+        config_object_node.properties = finalize_webpack_object(
+            webpack_object=webpack_object,
+            version=self.get('__webpack_target__', self.__webpack_target__),
+        ).properties
         return ast
 
     def __str__(self):
         return str(self._ast())
+
+
+def finalize_webpack_object(webpack_object, version):
+    exported_properties = []
+    deferred = []
+    for property_ in webpack_object.properties:
+        finalized = _finalize_property(property_, version)
+        if finalized is property_:
+            exported_properties.append(finalized)
+        elif callable(finalized):
+            deferred.append(finalized)
+
+    # reconstitute the webpack_object
+    webpack_object.properties = exported_properties
+    for finalize in deferred:
+        finalize(webpack_object)
+
+    return webpack_object
+
+
+def identity_property(property_, version):
+    return property_
+
+
+def _webpack_mode(property_, version):
+    value = property_.right
+    if version < (4, 0, 0):
+        if (isinstance(value, asttypes.String) and
+                str(value)[1:-1] == DEFAULT_WEBPACK_MODE):
+            logger.info(
+                'unsupported property with default value removed for '
+                'webpack %s: {%s}',
+                '.'.join(str(v) for v in version), property_
+            )
+        else:
+            logger.warning(
+                'unsupported property with non-default value removed for '
+                'webpack %s: {%s}; (un)expected (mis)behavior may occur',
+                '.'.join(str(v) for v in version), property_
+            )
+        return
+    return property_
+
+
+def _disable_default_json_loader(property_, version):
+    # this must be a webpack_config["module"]
+    value = property_.right
+    if version >= (4, 0, 0):
+        rules = es5_single(_WEBPACK_4_DISABLE_JSON__MODULE_RULES_)
+        logger.info(
+            "disabling default json loader module rule for webpack %s",
+            '.'.join(str(v) for v in version),
+        )
+        inject_array_items_to_object_property_value(
+            value, asttypes.String('"rules"'), rules)
+
+    return property_
+
+
+def _webpack_optimization(property_, version):
+    # this must be a webpack_config["optimization"]
+
+    def apply_legacy_uglifyjs_plugin(config):
+        inject_array_items_to_object_property_value(
+            config, asttypes.String('"plugins"'), es5_single(
+                '[new webpack.optimize.UglifyJsPlugin({})]'
+            )
+        )
+
+    if version < (4, 0, 0):
+        try:
+            # this indiscriminately extract an assignment that has
+            # "minimize": true
+            walker.extract(property_.right, lambda node: (
+                isinstance(node, asttypes.Assign) and
+                isinstance(node.left, asttypes.String) and
+                isinstance(node.right, asttypes.Boolean) and
+                node.left.value == '"minimize"' and
+                node.right.value == 'true'
+            ))
+        except TypeError:
+            logger.info(
+                'dropping unsupported property for webpack %s: {%s}',
+                '.'.join(str(v) for v in version), property_
+            )
+        else:
+            logger.info(
+                'converting unsupported property to a plugin for '
+                'webpack %s: {%s}',
+                '.'.join(str(v) for v in version), property_
+            )
+            return apply_legacy_uglifyjs_plugin
+        return
+    return property_
+
+
+def _finalize_property(property_, version, rules={
+    '"mode"': _webpack_mode,
+    '"module"': _disable_default_json_loader,
+    '"optimization"': _webpack_optimization,
+}):
+    return rules.get(str(property_.left), identity_property)(
+        property_, version)
