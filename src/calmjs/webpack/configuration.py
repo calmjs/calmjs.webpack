@@ -142,7 +142,15 @@ class WebpackConfig(MutableMapping):
     configuration options.  A method is also provided for serialization
     of the defined options to a webpack configuration script that is
     optimized to the specific supported webpack version(s).
+
+    Note that this class should create a configuration file that is
+    targeted towards the version of webpack declared by this package,
+    and the optimized exports is a one-way conversion only.
     """
+
+    # marker to denote the version of webpack to be targeted by this
+    # class.
+    __webpack_target__ = (4, 0, 0)
 
     # Ideally this implements the actual ECMAScript object data model,
     # but that is __way__ too much effort so this is still going to be
@@ -150,12 +158,11 @@ class WebpackConfig(MutableMapping):
 
     def __init__(self, *a, **kw):
         self.__special_mapping = {
-            'plugins': _WebpackConfigPlugins
+            'plugins': _WebpackConfigPlugins,
+            # define specific reserved keys (which will be filtered)
+            '__webpack_target__': identity,
         }
         self.__config = {}
-        self.__ast = es5(_WEBPACK_CONFIG_TEMPLATE)
-        self.__ast_config = walker.extract(
-            self.__ast, lambda node: isinstance(node, asttypes.Object))
         self.update(*a, **kw)
 
     def __getitem__(self, key):
@@ -177,25 +184,42 @@ class WebpackConfig(MutableMapping):
     def __contains__(self, key):
         return key in self.__config
 
-    def __str__(self):
-        # map all special configurations options to config
-        config = (
+    def _generate_ast_and_config_node(
+            self, template=_WEBPACK_CONFIG_TEMPLATE, skip=0):
+        ast = es5(template)
+        config_object_node = walker.extract(
+            ast, lambda node: isinstance(node, asttypes.Object), skip=skip)
+        return ast, config_object_node
+
+    def _ast(self):
+        """
+        Subclass may override the generation of the AST.
+        """
+
+        ast, config_object_node = self._generate_ast_and_config_node()
+
+        # map all special configurations options
+        special_config = (
             (key, self.__config.get(key, NotImplemented))
             for key in self.__special_mapping
         )
         # make an assignment statement as bare objects are invalid code
-        config_obj = es5_single('config = ' + dumps({
+        webpack_object = es5_single('config = ' + dumps({
             k: v
             for k, v in self.__config.items()
             if k not in self.__special_mapping
         })).right
         # manually reassign them directly onto the config object AST
-        for key, value in config:
-            if value is NotImplemented:
+        for key, value in special_config:
+            if (value is NotImplemented or
+                    self.__special_mapping.get(key) is identity):
                 continue
-            config_obj.properties.append(asttypes.Assign(
+            webpack_object.properties.append(asttypes.Assign(
                 left=asttypes.String('"%s"' % key), op=':',
                 right=value.export(),
             ))
-        self.__ast_config.properties = config_obj.properties
-        return str(self.__ast)
+        config_object_node.properties = webpack_object.properties
+        return ast
+
+    def __str__(self):
+        return str(self._ast())

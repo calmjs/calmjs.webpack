@@ -111,6 +111,16 @@ class ConfigObjectTestCase(unittest.TestCase):
         module.exports = webpackConfig;
         """).lstrip(), str(config))
 
+    def test_defined_special_keys_filtered(self):
+        config = configuration.WebpackConfig(__webpack_target__=(1, 2, 3))
+        self.assertEqual(config, {'__webpack_target__': (1, 2, 3)})
+        self.assertEqual(dedent("""
+        'use strict';
+        var webpack = require('webpack');
+        var webpackConfig = {};
+        module.exports = webpackConfig;
+        """).lstrip(), str(config))
+
     def test_base_config_plugins(self):
         config = configuration.WebpackConfig({
             'mode': 'production',
