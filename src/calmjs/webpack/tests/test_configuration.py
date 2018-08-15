@@ -6,6 +6,7 @@ from textwrap import dedent
 
 from calmjs.parse import asttypes
 from calmjs.webpack import configuration
+
 from calmjs.utils import pretty_logging
 from calmjs.testing.mocks import StringIO
 
@@ -29,6 +30,33 @@ class CleanConfigTestCase(unittest.TestCase):
         self.assertEqual({'mode': 'none'}, config)
 
 
+class ConfigBaseTestCase(unittest.TestCase):
+
+    def test_base_config(self):
+        config = configuration.ConfigMapping()
+        self.assertEqual(config, {})
+        config['foo'] = 'bar'
+        self.assertEqual(config, {'foo': 'bar'})
+        self.assertEqual(config.json(), '{"foo": "bar"}')
+        self.assertEqual(str(config.es5()), '{\n    "foo": "bar"\n}')
+
+    def test_mapping_shallow_clone(self):
+        config = configuration.ConfigMapping()
+        # instance based manipulation of the special mapping is possible
+        # but really shouldn't be done when used as a real process.
+        config._special_mapping = {'bar': configuration.ConfigMapping}
+
+        foo = configuration.ConfigMapping()
+        config['foo'] = foo
+        self.assertIs(config['foo'], foo)
+        # this would not be the case as the special mapping triggers a
+        # clone on assignment.
+        bar = configuration.ConfigMapping()
+        config['bar'] = bar
+        self.assertIsNot(config['bar'], bar)
+        self.assertTrue(isinstance(config['bar'], configuration.ConfigMapping))
+
+
 class PluginsObjectTestCase(unittest.TestCase):
 
     def test_plugins(self):
@@ -44,7 +72,7 @@ class PluginsObjectTestCase(unittest.TestCase):
         ]
         """).strip(), str(plugins))
 
-        exported = plugins.export()
+        exported = plugins.es5()
         self.assertTrue(isinstance(exported, asttypes.Node))
 
         for plugin, export in zip(plugins, exported):
