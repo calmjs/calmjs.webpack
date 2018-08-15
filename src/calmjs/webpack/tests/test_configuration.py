@@ -49,12 +49,34 @@ class ConfigBaseTestCase(unittest.TestCase):
         foo = configuration.ConfigMapping()
         config['foo'] = foo
         self.assertIs(config['foo'], foo)
+
         # this would not be the case as the special mapping triggers a
         # clone on assignment.
         bar = configuration.ConfigMapping()
         config['bar'] = bar
         self.assertIsNot(config['bar'], bar)
         self.assertTrue(isinstance(config['bar'], configuration.ConfigMapping))
+
+    def test_sequence_shallow_clone(self):
+        plugins = configuration.ConfigCodeSequence([
+            'new Plugin1({})',
+            'new Plugin2({})',
+        ])
+        self.assertEqual(plugins.json(), '[]')
+        clone = configuration.ConfigCodeSequence(plugins)
+        self.assertEqual(dedent("""
+        [
+            new Plugin1({}),
+            new Plugin2({})
+        ]
+        """).strip(), str(clone))
+        clone[0].args.items[0].properties.append(configuration.asttypes.Assign(
+            left=configuration.asttypes.Identifier('foo'),
+            op=':',
+            right=configuration.asttypes.Number('0'),
+        ))
+        # original should be modified, as clones are done shallow.
+        self.assertEqual('new Plugin1({\n    foo: 0\n})', str(plugins[0]))
 
 
 class PluginsObjectTestCase(unittest.TestCase):

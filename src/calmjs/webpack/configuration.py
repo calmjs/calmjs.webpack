@@ -12,6 +12,15 @@ from operator import (
     ge,
 )
 
+# these are the specific instances used for type checking
+from calmjs.parse.asttypes import (
+    Assign,
+    Boolean,
+    ExprStatement,
+    Node,
+    Object,
+    String,
+)
 from calmjs.parse.factory import AstTypesFactory
 from calmjs.parse.parsers.es5 import Parser
 from calmjs.parse.rules import indent
@@ -66,7 +75,7 @@ def es5(source):
 
 def es5_single(text):
     return walker.extract(
-        es5(text), lambda node: isinstance(node, asttypes.ExprStatement)
+        es5(text), lambda node: isinstance(node, ExprStatement)
     ).expr
 
 
@@ -195,9 +204,9 @@ class ConfigMapping(MutableMapping):
         return json_node
 
 
-class _WebpackConfigPlugins(MutableSequence):
+class ConfigCodeSequence(MutableSequence):
     """
-    A sequence specifically for webpack plugins.
+    A sequence specifically for ES5 code.
     """
 
     def __init__(self, default=None):
@@ -210,7 +219,7 @@ class _WebpackConfigPlugins(MutableSequence):
         return self.__node.items[key]
 
     def __setitem__(self, key, value):
-        self.__node.items[key] = es5_single(value)
+        self.__node.items[key] = self._value(value)
 
     def __delitem__(self, key):
         self.__node.items.__delitem__(key)
@@ -221,14 +230,28 @@ class _WebpackConfigPlugins(MutableSequence):
     def __len__(self):
         return len(self.__node.items)
 
+    def _value(self, value):
+        return value if isinstance(value, Node) else es5_single(value)
+
     def insert(self, index, value):
-        self.__node.items.insert(index, es5_single(value))
+        self.__node.items.insert(index, self._value(value))
 
     def __str__(self):
         return str(self.__node)
 
+    def json(self):
+        # since it's all ES5 code, none of the elements should produce
+        # JSON.
+        return '[]'
+
     def es5(self):
         return asttypes.Array(list(self))
+
+
+class _WebpackConfigPlugins(ConfigCodeSequence):
+    """
+    A sequence specifically for webpack plugins.
+    """
 
 
 class WebpackConfig(ConfigMapping):
@@ -285,7 +308,7 @@ class WebpackConfig(ConfigMapping):
 def generate_ast_and_config_node(template, skip=0):
     ast = es5(template)
     config_object_node = walker.extract(
-        ast, lambda node: isinstance(node, asttypes.Object), skip=skip)
+        ast, lambda node: isinstance(node, Object), skip=skip)
     return ast, config_object_node
 
 
@@ -314,7 +337,7 @@ def identity_property(property_, version):
 def _webpack_mode(property_, version):
     value = property_.right
     if version < (4, 0, 0):
-        if (isinstance(value, asttypes.String) and
+        if (isinstance(value, String) and
                 str(value)[1:-1] == DEFAULT_WEBPACK_MODE):
             logger.info(
                 'unsupported property with default value removed for '
@@ -361,9 +384,9 @@ def _webpack_optimization(property_, version):
             # this indiscriminately extract an assignment that has
             # "minimize": true
             walker.extract(property_.right, lambda node: (
-                isinstance(node, asttypes.Assign) and
-                isinstance(node.left, asttypes.String) and
-                isinstance(node.right, asttypes.Boolean) and
+                isinstance(node, Assign) and
+                isinstance(node.left, String) and
+                isinstance(node.right, Boolean) and
                 node.left.value == '"minimize"' and
                 node.right.value == 'true'
             ))
