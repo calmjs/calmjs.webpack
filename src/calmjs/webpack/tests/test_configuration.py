@@ -136,7 +136,7 @@ class PluginsObjectTestCase(unittest.TestCase):
         """).strip(), str(plugins))
 
 
-class ConfigObjectTestCase(unittest.TestCase):
+class WebpackConfigObjectTestCase(unittest.TestCase):
 
     def test_base_config(self):
         config = configuration.WebpackConfig()
@@ -147,7 +147,12 @@ class ConfigObjectTestCase(unittest.TestCase):
         'use strict';
         var webpack = require('webpack');
         var webpackConfig = {
-            "foo": "bar"
+            "foo": "bar",
+            "plugins": [
+                new webpack.optimize.LimitChunkCountPlugin({
+                    maxChunks: 1
+                })
+            ]
         };
         module.exports = webpackConfig;
         """).lstrip(), str(config))
@@ -159,7 +164,13 @@ class ConfigObjectTestCase(unittest.TestCase):
         self.assertEqual(dedent("""
         'use strict';
         var webpack = require('webpack');
-        var webpackConfig = {};
+        var webpackConfig = {
+            "plugins": [
+                new webpack.optimize.LimitChunkCountPlugin({
+                    maxChunks: 1
+                })
+            ]
+        };
         module.exports = webpackConfig;
         """).lstrip(), str(config))
 
@@ -169,7 +180,13 @@ class ConfigObjectTestCase(unittest.TestCase):
         self.assertEqual(dedent("""
         'use strict';
         var webpack = require('webpack');
-        var webpackConfig = {};
+        var webpackConfig = {
+            "plugins": [
+                new webpack.optimize.LimitChunkCountPlugin({
+                    maxChunks: 1
+                })
+            ]
+        };
         module.exports = webpackConfig;
         """).lstrip(), str(config))
 
@@ -188,6 +205,9 @@ class ConfigObjectTestCase(unittest.TestCase):
         var webpackConfig = {
             "mode": "production",
             "plugins": [
+                new webpack.optimize.LimitChunkCountPlugin({
+                    maxChunks: 1
+                }),
                 new webpack.optimize.UglifyJsPlugin({})
             ]
         };
@@ -201,6 +221,9 @@ class ConfigObjectTestCase(unittest.TestCase):
         var webpackConfig = {
             "mode": "production",
             "plugins": [
+                new webpack.optimize.LimitChunkCountPlugin({
+                    maxChunks: 1
+                }),
                 new webpack.optimize.UglifyJsPlugin({}),
                 new webpack.demo.Plugin({})
             ]
@@ -220,7 +243,7 @@ class ConfigObjectTestCase(unittest.TestCase):
             # default mode value should not be seralized
             config_str = str(config)
             self.assertNotIn('"mode": "none"', config_str)
-            self.assertIn("var webpackConfig = {}", config_str)
+            self.assertIn("var webpackConfig = {", config_str)
         self.assertIn(
             'INFO calmjs.webpack.configuration unsupported property with '
             'default value removed for webpack 2.6.1: {"mode": "none"}',
@@ -233,7 +256,7 @@ class ConfigObjectTestCase(unittest.TestCase):
             # default mode value should not be seralized
             config_str = str(config)
             self.assertNotIn('"mode": "production"', config_str)
-            self.assertIn("var webpackConfig = {}", config_str)
+            self.assertIn("var webpackConfig = {", config_str)
         self.assertIn(
             'WARNING calmjs.webpack.configuration unsupported property with '
             'non-default value removed for webpack 2.6.1: '
@@ -280,7 +303,6 @@ class ConfigObjectTestCase(unittest.TestCase):
             config_s = str(config)
             self.assertNotIn('"optimization": {', config_s)
             self.assertNotIn('"minimize": true', config_s)
-            self.assertIn('"plugins": [', config_s)
             self.assertIn('new webpack.optimize.UglifyJsPlugin({})', config_s)
 
         self.assertIn(
@@ -294,7 +316,8 @@ class ConfigObjectTestCase(unittest.TestCase):
             config_s = str(config)
             self.assertNotIn('"optimization": {', config_s)
             self.assertNotIn('"minimize": true', config_s)
-            self.assertNotIn('"plugins": [', config_s)
+            self.assertNotIn(
+                'new webpack.optimize.UglifyJsPlugin({})', config_s)
 
         self.assertIn(
             "dropping unsupported property for webpack 2.6.1: {",
@@ -307,7 +330,8 @@ class ConfigObjectTestCase(unittest.TestCase):
             config_s = str(config)
             self.assertNotIn('"optimization": {', config_s)
             self.assertNotIn('"minimize": true', config_s)
-            self.assertNotIn('"plugins": [', config_s)
+            self.assertNotIn(
+                'new webpack.optimize.UglifyJsPlugin({})', config_s)
 
         self.assertIn(
             "dropping unsupported property for webpack 2.6.1: {",

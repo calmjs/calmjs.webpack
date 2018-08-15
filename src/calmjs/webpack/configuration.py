@@ -95,10 +95,10 @@ _WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = """
 """
 
 # default list of webpack config plugins
-_WEBPACK_CONFIG_PLUGINS = (
-    # TODO figure out how to deal with chunking configuration
-    'new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})',
-)
+# TODO figure out how to best customize chunking configuration
+_WEBPACK_CONFIG_PLUGINS = """[
+    new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1}),
+]"""
 
 
 def identity(value):
@@ -326,6 +326,11 @@ def finalize_webpack_object(webpack_object, version):
     webpack_object.properties = exported_properties
     for finalize in deferred:
         finalize(webpack_object)
+
+    inject_array_items_to_object_property_value(
+        webpack_object, asttypes.String('"plugins"'),
+        es5_single(_WEBPACK_CONFIG_PLUGINS),
+    )
 
     return webpack_object
 
