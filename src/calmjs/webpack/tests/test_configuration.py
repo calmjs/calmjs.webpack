@@ -337,3 +337,59 @@ class WebpackConfigObjectTestCase(unittest.TestCase):
             "dropping unsupported property for webpack 2.6.1: {",
             fd.getvalue())
         self.assertIn('"minimize": {}', fd.getvalue())
+
+
+class KarmaWebpackConfigObjectTestCase(unittest.TestCase):
+
+    def test_base_config(self):
+        config = configuration.KarmaWebpackConfig()
+        # webpack value is persisted in the config by default.
+        self.assertEqual(config, {'webpack': {}})
+        self.assertTrue(
+            isinstance(config['webpack'], configuration.WebpackConfig))
+        config['foo'] = 'bar'
+        self.assertEqual(config['foo'], 'bar')
+        self.assertEqual(2, len(config))
+
+        self.assertEqual(dedent("""
+        'use strict';
+        var webpack = require('webpack');
+        var KillPlugin = function() {
+        };
+        KillPlugin.prototype.apply = function(compiler) {
+            compiler.plugin('done', function(stats) {
+                if (stats.hasErrors()) {
+                    setTimeout(function() {
+                        process.exit(2);
+                    }, 0);
+                }
+            });
+        };
+        module.exports = function(config) {
+            var karma_conf_json = {
+                "foo": "bar",
+                "webpack": {
+                    "plugins": [
+                        new KillPlugin(),
+                        new webpack.optimize.LimitChunkCountPlugin({
+                            maxChunks: 1
+                        })
+                    ]
+                }
+            };
+            config.set(karma_conf_json);
+        };
+        """).lstrip(), str(config))
+        self.assertNotIn('plugins', config)
+
+    def test_dropped_webpack_config(self):
+        config = configuration.KarmaWebpackConfig()
+        del config['webpack']
+
+        with self.assertRaises(KeyError) as e:
+            str(config)
+
+        self.assertEqual(
+            "'webpack' attribute missing in karma configuration object",
+            str(e.exception.args[0]),
+        )

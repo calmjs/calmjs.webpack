@@ -86,6 +86,28 @@ var webpackConfig = {};
 module.exports = webpackConfig;
 """
 
+_WEBPACK_KARMA_CONFIG_TEMPLATE = """'use strict';
+var webpack = require('webpack');
+
+// this defines the kill plugin that will be added later.
+var KillPlugin = function() {};
+KillPlugin.prototype.apply = function(compiler) {
+    compiler.plugin('done', function(stats) {
+        if (stats.hasErrors()) {
+            setTimeout(function() {
+                process.exit(2);
+            }, 0);
+        }
+    });
+};
+
+module.exports = function(config) {
+    var karma_conf_json = {};
+    // karma_conf_json.webpack = {};
+    config.set(karma_conf_json);
+}
+"""
+
 _WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = """
 [{
     test: /\.(json|html)/,
@@ -98,6 +120,11 @@ _WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = """
 # TODO figure out how to best customize chunking configuration
 _WEBPACK_CONFIG_PLUGINS = """[
     new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1}),
+]"""
+
+# default list of additional karma plugins
+_WEBPACK_KARMA_CONFIG_PLUGINS = """[
+    new KillPlugin(),
 ]"""
 
 
@@ -140,8 +167,8 @@ class ConfigMapping(MutableMapping):
     """
 
     def __init__(self, *a, **kw):
-        self._setup()
         self._config = {}
+        self._setup()
         self.update(*a, **kw)
 
     def _setup(self):
@@ -291,18 +318,51 @@ class WebpackConfig(ConfigMapping):
             version=self.get('__webpack_target__', self.__webpack_target__),
         )
 
-    def _ast(self):
-        """
-        Subclass may override the generation of the AST.
-        """
-
+    def __str__(self):
         ast, config_object_node = generate_ast_and_config_node(
             _WEBPACK_CONFIG_TEMPLATE)
         config_object_node.properties = self.es5().properties
-        return ast
+        return str(ast)
+
+
+class KarmaWebpackConfig(ConfigMapping):
+    """
+    An abstraction of a karma.conf.js file with a webpack property.
+
+    Like the WebpackConfig mapping, it is set up to track the required
+    special mapping (which is WebpackConfig in this case).
+    """
+
+    def _setup(self):
+        self._special_mapping = {
+            'webpack': WebpackConfig,
+        }
+        # preassign specific reserved values
+        self['webpack'] = {}
 
     def __str__(self):
-        return str(self._ast())
+        ast, config_object_node = generate_ast_and_config_node(
+            _WEBPACK_KARMA_CONFIG_TEMPLATE)
+        karma_node = self.es5()
+
+        try:
+            webpack_object_node = walker.extract(karma_node, lambda node: (
+                isinstance(node, Assign) and
+                isinstance(node.right, Object) and
+                isinstance(node.left, String) and
+                node.left.value == '"webpack"'
+            )).right
+        except TypeError:
+            raise KeyError(
+                "'webpack' attribute missing in karma configuration object")
+
+        inject_array_items_to_object_property_value(
+            webpack_object_node, asttypes.String('"plugins"'),
+            es5_single(_WEBPACK_KARMA_CONFIG_PLUGINS),
+        )
+
+        config_object_node.properties = karma_node.properties
+        return str(ast)
 
 
 def generate_ast_and_config_node(template, skip=0):
