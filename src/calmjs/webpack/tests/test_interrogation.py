@@ -18,7 +18,7 @@ def read(p):
 
 # the versions of examples we have generated for and stored statically
 # in this package
-_versions = ['2.6']
+_versions = ['2.7', '3.12', '4.0', '4.16']
 _root = resource_filename('calmjs.webpack.testing', 'examples')
 _empty = parse(read(join(_root, 'empty_package.js')))
 _base = [parse(read(join(_root, v, f))) for v in _versions for f in (

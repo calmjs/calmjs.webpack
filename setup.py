@@ -34,8 +34,8 @@ Topic :: Utilities
 package_json = {
     "dependencies": {},
     "devDependencies": {
-        "webpack": "~2.6.0",
-        "karma-webpack": "~2.0.0",
+        "webpack": "~2.7.0",
+        "karma-webpack": "~3.0.0",
         "sourcemap-istanbul-instrumenter-loader": "~0.2.0",
     }
 }
