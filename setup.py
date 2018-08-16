@@ -73,7 +73,7 @@ setup(
     ],
     extras_require={
         'dev': [
-            'calmjs.dev>=2.2.1,<3',
+            'calmjs.dev>=2.2.2,<3',
         ],
     },
     entry_points={

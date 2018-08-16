@@ -11,25 +11,6 @@ from calmjs.utils import pretty_logging
 from calmjs.testing.mocks import StringIO
 
 
-class CleanConfigTestCase(unittest.TestCase):
-
-    def test_version_2(self):
-        config = {}
-        configuration.clean_config(config, '2.6.1')
-        self.assertEqual({}, config)
-        config = {'mode': 'none'}
-        configuration.clean_config(config, '2.6.1')
-        self.assertEqual({}, config)
-
-    def test_version_4(self):
-        config = {'mode': 'none'}
-        configuration.clean_config(config, '4.0.1')
-        self.assertEqual({'mode': 'none'}, config)
-        config = {}
-        configuration.clean_config(config, '4.0.1')
-        self.assertEqual({'mode': 'none'}, config)
-
-
 class ConfigBaseTestCase(unittest.TestCase):
 
     def test_base_config(self):

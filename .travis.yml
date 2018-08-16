@@ -7,7 +7,7 @@ matrix:
   include:
     - language: python
       python: 2.7
-      env: TRAVIS_NODE_VERSION=4.9
+      env: TRAVIS_NODE_VERSION=6.14
     - language: python
       python: 3.4
       env: TRAVIS_NODE_VERSION=6.14
@@ -29,13 +29,13 @@ matrix:
       env: TRAVIS_NODE_VERSION=10
     - language: python
       python: pypy
-      env: TRAVIS_NODE_VERSION=4.8
+      env: TRAVIS_NODE_VERSION=6.14
     - language: python
       python: pypy3
       env: TRAVIS_NODE_VERSION=6.12
     # test different versions of Node.js on osx
     - language: node_js
-      node_js: 4.9
+      node_js: 6.14
       os: osx
       env: TRAVIS_PYTHON_VERSION=3.4.8
     - language: node_js

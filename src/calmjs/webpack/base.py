@@ -18,6 +18,8 @@ CALMJS_WEBPACK_MODNAME_LOADER_MAP = 'calmjs_webpack_modname_loader_map'
 
 # The spec key for storing the base webpack configuration.
 WEBPACK_CONFIG = 'webpack_config'
+# The spec key for storing the webpack.devtool
+WEBPACK_DEVTOOL = 'webpack_devtool'
 # The key for the webpack.output.library
 WEBPACK_OUTPUT_LIBRARY = 'webpack_output_library'
 # The key for generating a combined single test index.
@@ -82,6 +84,7 @@ DEFAULT_BOOTSTRAP_EXPORT_CONFIG = {
 DEFAULT_WEBPACK_MODES = ('none', 'development', 'production')
 # default webpack mode is production (and a warning) if unset
 DEFAULT_WEBPACK_MODE = DEFAULT_WEBPACK_MODES[0]
+DEFAULT_WEBPACK_DEVTOOL = False
 
 
 # due to webpack specific requirements, a special type for the key is
@@ -90,26 +93,3 @@ DEFAULT_WEBPACK_MODE = DEFAULT_WEBPACK_MODES[0]
 CALMJS_WEBPACK_MODULE_LOADER_SUFFIX = '.webpackloader'
 WebpackModuleLoaderRegistryKey = namedtuple(
     'WebpackModuleLoaderRegistryKey', ['loader', 'modname'])
-
-
-# TODO should somehow use the calmjs.parse ast to stitch this together
-WEBPACK_KARMA_CONF_TEMPLATE = """
-var KillPlugin = function() {};
-KillPlugin.prototype.apply = function(compiler) {
-    compiler.plugin('done', function(stats) {
-        if (stats.hasErrors()) {
-            setTimeout(function() {
-                process.exit(2);
-            }, 0);
-        }
-    });
-};
-
-module.exports = function(config) {
-    var karma_conf_json = %s;
-    karma_conf_json.webpack.plugins = [
-        new KillPlugin(),
-    ];
-    config.set(karma_conf_json);
-}
-"""

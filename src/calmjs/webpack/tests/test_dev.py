@@ -268,7 +268,7 @@ class KarmaTestcase(unittest.TestCase):
         # create the required mocks and stubs so that toolchain finds
         # a webpack version
         stub_item_attr_value(
-            self, dev, 'get_bin_version_str', lambda p: '1.0.0')
+            self, dev, 'get_bin_version', lambda p: (1, 0, 0))
         webpack = join(mkdtemp(self), 'webpack')
         with open(webpack, 'w'):
             pass
@@ -339,7 +339,7 @@ class KarmaTestcase(unittest.TestCase):
 
         unified_module = join(build_dir, '__calmjs_tests__.js')
         self.assertEqual(spec['karma_config']['files'], [unified_module])
-        self.assertEqual(karma_config['webpack']['resolve']['alias'][
+        self.assertEqual(spec['karma_config']['webpack']['resolve']['alias'][
             'some/package/tests/test_module'
         ], '/src/some/package/tests/test_module.js')
 

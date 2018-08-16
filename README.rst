@@ -149,6 +149,11 @@ installed directly from PyPI with the following command:
 
     $ pip install calmjs.webpack
 
+As this Python package interface with Node.js tools, the runtime for
+this language should also be available on the system.  Please install
+one of the supported LTS versions as listed on the `Node.js`_ website.
+Currently, the minimum supported Node.js version is 6 for this package.
+
 Installing/using webpack with calmjs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -7,10 +7,6 @@ import logging
 from collections import MutableMapping
 from collections import MutableSequence
 from json import dumps
-from operator import (
-    lt,
-    ge,
-)
 
 # these are the specific instances used for type checking
 from calmjs.parse.asttypes import (
@@ -130,28 +126,6 @@ _WEBPACK_KARMA_CONFIG_PLUGINS = """[
 
 def identity(value):
     return value
-
-
-def apply_webpack_mode(config):
-    if 'mode' not in config:
-        config['mode'] = DEFAULT_WEBPACK_MODE
-
-
-def remove_webpack_mode(config):
-    config.pop('mode', None)
-
-
-config_rules = (
-    (lt, ((4, 0),), remove_webpack_mode),
-    (ge, ((4, 0),), apply_webpack_mode),
-)
-
-
-def clean_config(config, version_str, rules=config_rules):
-    version = tuple(int(i) for i in version_str.split('.'))
-    for operator, arguments, rule in rules:
-        if operator(version, *arguments):
-            rule(config)
 
 
 # Ideally, for the implementaiton following mapping types, they be done

@@ -19,7 +19,7 @@ from os.path import pathsep
 from subprocess import call
 
 from calmjs.types.exceptions import ToolchainAbort
-from calmjs.cli import get_bin_version_str
+from calmjs.cli import get_bin_version
 from calmjs.toolchain import ES5Toolchain
 from calmjs.toolchain import ToolchainSpecCompileEntry
 from calmjs.toolchain import CALMJS_LOADERPLUGIN_REGISTRY
@@ -40,7 +40,7 @@ from calmjs.webpack.manipulation import convert_dynamic_require_unparser
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.base import WEBPACK_MODULE_RULES
 from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
-from calmjs.webpack.configuration import clean_config
+from calmjs.webpack.configuration import WebpackConfig
 
 from .dev import webpack_advice
 from .env import webpack_env
@@ -54,9 +54,13 @@ from .base import WEBPACK_RESOLVELOADER_ALIAS
 from .base import WEBPACK_OUTPUT_LIBRARY
 from .base import WEBPACK_ENTRY_POINT
 from .base import WEBPACK_OPTIMIZE_MINIMIZE
+from .base import WEBPACK_DEVTOOL
+from .base import WEBPACK_MODE
 from .base import VERIFY_IMPORTS
 from .base import DEFAULT_BOOTSTRAP_EXPORT
 from .base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
+from .base import DEFAULT_WEBPACK_DEVTOOL
+from .base import DEFAULT_WEBPACK_MODE
 
 logger = logging.getLogger(__name__)
 
@@ -71,26 +75,6 @@ _DEFAULT_BOOTSTRAP_FILENAME = '__calmjs_bootstrap__.js'
 # name for the extended loader module, usually will be working in
 # conjunction with DEFAULT_CALMJS_EXPORT_NAME
 _DEFAULT_LOADER_FILENAME = '__calmjs_loader__.js'
-
-# TODO should probably use calmjs.parse to build this through asttypes
-_WEBPACK_CONFIG_TEMPLATE = """'use strict';
-
-var webpack = require('webpack');
-
-var webpackConfig = (
-%s
-)
-
-module.exports = webpackConfig;
-module.exports.plugins = [
-%s
-];
-"""
-# default list of webpack config plugins
-_WEBPACK_CONFIG_PLUGINS = (
-    # TODO figure out how to deal with chunking configuration
-    'new webpack.optimize.LimitChunkCountPlugin({maxChunks: 1})',
-)
 
 # TODO document how the custom loader will ONLY work for
 # libraryTarget: "window", but
@@ -321,15 +305,9 @@ class WebpackToolchain(ES5Toolchain):
         return export_module_path
 
     def write_webpack_config(self, spec, webpack_config):
-        # write out the configuration file
-        plugins = list(_WEBPACK_CONFIG_PLUGINS)
-        if spec.get(WEBPACK_OPTIMIZE_MINIMIZE):
-            plugins.append('new webpack.optimize.UglifyJsPlugin({})')
-        config_dump = json_dumps(webpack_config)
-        plugins_dump = ',\n    '.join(plugins)
         with codecs.open(
                 spec['webpack_config_js'], 'w', encoding='utf8') as fd:
-            fd.write(_WEBPACK_CONFIG_TEMPLATE % (config_dump, plugins_dump))
+            fd.write(str(webpack_config))
 
     def check_all_alias_declared(self, alias, name_checker):
         missing = set()
@@ -374,7 +352,9 @@ class WebpackToolchain(ES5Toolchain):
 
         # the build config is the file that will be passed to webpack for
         # building the final bundle.
-        webpack_config = {
+        webpack_config = WebpackConfig({
+            'mode': spec.get(WEBPACK_MODE, DEFAULT_WEBPACK_MODE),
+            'devtool': spec.get(WEBPACK_DEVTOOL, DEFAULT_WEBPACK_DEVTOOL),
             'output': {
                 'path': dirname(spec[EXPORT_TARGET]),
                 'filename': basename(spec[EXPORT_TARGET]),
@@ -394,9 +374,18 @@ class WebpackToolchain(ES5Toolchain):
             },
             'externals': spec.get(WEBPACK_EXTERNALS, {}),
             'module': {},
-        }
+        })
+        if spec.get(WEBPACK_OPTIMIZE_MINIMIZE):
+            webpack_config['optimization'] = {'minimize': True}
         if WEBPACK_OUTPUT_LIBRARY in spec:
             webpack_config['output']['library'] = spec[WEBPACK_OUTPUT_LIBRARY]
+
+        version = get_bin_version(spec[self.webpack_bin_key])
+        logger.debug(
+            "found webpack at '%s' to be version '%s'",
+            spec[self.webpack_bin_key], version
+        )
+        webpack_config['__webpack_target__'] = version
 
         # set up alias lookup mapping.
         webpack_config['resolve']['alias'] = alias = {}
@@ -529,13 +518,6 @@ class WebpackToolchain(ES5Toolchain):
 
         update_spec_webpack_loaders_modules(spec, alias)
         webpack_config['module']['rules'] = spec.get(WEBPACK_MODULE_RULES, [])
-
-        version = get_bin_version_str(spec[self.webpack_bin_key])
-        logger.debug(
-            "found webpack at '%s' to be version '%s'",
-            spec[self.webpack_bin_key], version
-        )
-        clean_config(webpack_config, version)
 
         # write the configuration file, after everything is checked.
         self.write_webpack_config(spec, webpack_config)

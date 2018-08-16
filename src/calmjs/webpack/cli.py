@@ -24,10 +24,14 @@ from calmjs.webpack.base import WEBPACK_ENTRY_POINT
 from calmjs.webpack.base import WEBPACK_EXTERNALS
 from calmjs.webpack.base import WEBPACK_OUTPUT_LIBRARY
 from calmjs.webpack.base import WEBPACK_OPTIMIZE_MINIMIZE
+from calmjs.webpack.base import WEBPACK_DEVTOOL
+from calmjs.webpack.base import WEBPACK_MODE
 from calmjs.webpack.base import VERIFY_IMPORTS
 
 from calmjs.webpack.base import CALMJS_WEBPACK_LOADERPLUGINS
 
+from calmjs.webpack.base import DEFAULT_WEBPACK_MODE
+from calmjs.webpack.base import DEFAULT_WEBPACK_DEVTOOL
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 
@@ -53,6 +57,8 @@ def create_spec(
         webpack_entry_point=DEFAULT_BOOTSTRAP_EXPORT,
         webpack_output_library=True,
         webpack_optimize_minimize=False,
+        webpack_mode=DEFAULT_WEBPACK_MODE,
+        webpack_devtool=DEFAULT_WEBPACK_DEVTOOL,
         verify_imports=True,
         ):
     """
@@ -244,6 +250,8 @@ def create_spec(
     spec[EXPORT_TARGET] = export_target
     spec[SOURCE_PACKAGE_NAMES] = package_names
     spec[WEBPACK_OPTIMIZE_MINIMIZE] = webpack_optimize_minimize
+    spec[WEBPACK_MODE] = webpack_mode
+    spec[WEBPACK_DEVTOOL] = webpack_devtool
     spec[VERIFY_IMPORTS] = verify_imports
     spec[CALMJS_LOADERPLUGIN_REGISTRY_NAME] = calmjs_loaderplugin_registry_name
 
@@ -351,6 +359,8 @@ def compile_all(
         webpack_output_library=True,
         toolchain=default_toolchain,
         webpack_optimize_minimize=False,
+        webpack_mode=DEFAULT_WEBPACK_MODE,
+        webpack_devtool=DEFAULT_WEBPACK_DEVTOOL,
         verify_imports=True,
         ):
     """
@@ -386,6 +396,8 @@ def compile_all(
         webpack_entry_point=webpack_entry_point,
         webpack_output_library=webpack_output_library,
         webpack_optimize_minimize=webpack_optimize_minimize,
+        webpack_mode=webpack_mode,
+        webpack_devtool=webpack_devtool,
         verify_imports=verify_imports,
     )
     toolchain(spec)
