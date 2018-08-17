@@ -3,6 +3,8 @@
 Various utility functions
 """
 
+from __future__ import unicode_literals
+
 import logging
 from collections import MutableMapping
 from collections import MutableSequence
@@ -75,7 +77,7 @@ def es5_single(text):
     ).expr
 
 
-_WEBPACK_CONFIG_TEMPLATE = r"""'use strict';
+_WEBPACK_CONFIG_TEMPLATE = """'use strict';
 
 var webpack = require('webpack');
 var webpackConfig = {};

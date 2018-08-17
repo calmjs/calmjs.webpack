@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import unittest
 import json
 import os
+from codecs import open
 from os.path import exists
 from os.path import join
 
@@ -233,7 +234,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
 
-        with open(join(tmpdir, 'config.js')) as fd:
+        with open(join(tmpdir, 'config.js'), encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         self.assertEqual(config_js['output'], {
@@ -287,7 +288,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         self.assertTrue(exists(join(tmpdir, 'config.js')))
         self.assertEqual(spec[CONFIG_JS_FILES], [join(tmpdir, 'config.js')])
 
-        with open(join(tmpdir, 'config.js')) as fd:
+        with open(join(tmpdir, 'config.js'), encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         self.assertEqual(config_js['output'], {
@@ -363,7 +364,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         )
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
-        with open(join(tmpdir, 'config.js')) as fd:
+        with open(join(tmpdir, 'config.js'), encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         # the bootstrap is generated and is the entry point.
@@ -505,7 +506,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
             s.getvalue())
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
-        with open(join(tmpdir, 'config.js')) as fd:
+        with open(join(tmpdir, 'config.js'), encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         with open(config_js['entry']) as fd:
@@ -600,7 +601,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         )
 
         self.assertTrue(exists(join(tmpdir, 'config.js')))
-        with open(join(tmpdir, 'config.js')) as fd:
+        with open(join(tmpdir, 'config.js'), encoding='utf8') as fd:
             config = extract_webpack_config_object(fd)
 
         # the bootstrap is generated and is the entry point.
@@ -687,7 +688,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # check that they all exists
         self.assertTrue(exists(config_js))
 
-        with open(config_js) as fd:
+        with open(config_js, encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         self.assertIn('WARNING', s.getvalue())
@@ -793,7 +794,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
         # check that they all exists
         self.assertTrue(exists(config_js))
 
-        with open(config_js) as fd:
+        with open(config_js, encoding='utf8') as fd:
             config_js = extract_webpack_config_object(fd)
 
         self.assertNotIn('WARNING', s.getvalue())
