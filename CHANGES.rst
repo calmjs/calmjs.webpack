@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.1.1 (2018-08-??)
+1.1.1 (2018-08-18)
 ------------------
 
 - Ensure the line-continuation mark is filtered out in the to_identifier
