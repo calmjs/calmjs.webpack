@@ -194,7 +194,6 @@ class WebpackToolchain(ES5Toolchain):
     def __init__(self, *a, **kw):
         super(WebpackToolchain, self).__init__(*a, **kw)
         self.binary = self.webpack_bin
-        self._set_env_path_with_node_modules()
 
     def setup_transpiler(self):
         self.parser = parse
