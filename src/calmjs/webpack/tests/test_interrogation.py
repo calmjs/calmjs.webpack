@@ -84,6 +84,7 @@ class WebpackTestCase(unittest.TestCase):
             "\u3042",
             "\u3042",
             "    ",
+            "foobar",
         ]
         for a, r in zip(answers, (o for o in interrogation.walker.filter(
                 _unusual_names, lambda node: isinstance(node, Object)))):

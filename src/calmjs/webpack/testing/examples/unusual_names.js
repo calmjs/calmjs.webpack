@@ -12,4 +12,7 @@ var examples = [
     {"\u3042": 0},
     {"\
     ": 0},
+    {"foo\
+bar": 0},
 ];
+console.log(examples);

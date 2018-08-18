@@ -133,8 +133,14 @@ def to_identifier(node):
         # unicode-escape to encode all the things - and then strip off
         # the doubly escaped backslashes for everything and bring it
         # back by decoding again with unicode-escape.
-        return node.value[1:-1].encode('unicode-escape').replace(
-            b'\\\\', b'\\').decode('unicode-escape')
+        return node.value[1:-1].replace(
+            # Note that the line continuation mark is included with the
+            # AST since calmjs.parse-1.1.0; strip this out before doing
+            # the unicode-escape dance.
+            '\\\n', '').encode(
+            'unicode-escape').replace(
+            b'\\\\', b'\\').decode(
+            'unicode-escape')
     else:
         # assume to be an Identifier
         return node.value

@@ -1,6 +1,15 @@
 Changelog
 =========
 
+1.1.1 (2018-08-??)
+------------------
+
+- Ensure the line-continuation mark is filtered out in the to_identifier
+  helper function as the values of String node object included that mark
+  as of ``calmjs.parse-1.1.0``.  [
+  `#7 <https://github.com/calmjs/calmjs.webpack/issues/7>`_
+  ]
+
 1.1.0 (2018-07-25)
 ------------------
 
