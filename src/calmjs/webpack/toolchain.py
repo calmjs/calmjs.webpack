@@ -379,7 +379,10 @@ class WebpackToolchain(ES5Toolchain):
         if WEBPACK_OUTPUT_LIBRARY in spec:
             webpack_config['output']['library'] = spec[WEBPACK_OUTPUT_LIBRARY]
 
-        version = get_bin_version(spec[self.webpack_bin_key])
+        version = get_bin_version(spec[self.webpack_bin_key], kw={
+            'env': webpack_env(pathsep.join(self.find_node_modules_basedir())),
+        })
+
         logger.debug(
             "found webpack at '%s' to be version '%s'",
             spec[self.webpack_bin_key], version

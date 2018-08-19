@@ -268,7 +268,7 @@ class KarmaTestcase(unittest.TestCase):
         # create the required mocks and stubs so that toolchain finds
         # a webpack version
         stub_item_attr_value(
-            self, dev, 'get_bin_version', lambda p: (1, 0, 0))
+            self, dev, 'get_bin_version', lambda p, kw: (1, 0, 0))
         webpack = join(mkdtemp(self), 'webpack')
         with open(webpack, 'w'):
             pass

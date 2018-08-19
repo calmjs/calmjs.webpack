@@ -140,7 +140,7 @@ class ToolchainUnitTestCase(unittest.TestCase):
 
     def setUp(self):
         utils.stub_item_attr_value(
-            self, toolchain, 'get_bin_version', lambda p: (1, 0, 0))
+            self, toolchain, 'get_bin_version', lambda p, kw: (1, 0, 0))
 
     def test_prepare_failure_manual(self):
         webpack = toolchain.WebpackToolchain()
@@ -905,7 +905,7 @@ class ToolchainCompileLoaderTestCase(unittest.TestCase):
 
         # also stub the version finding.
         utils.stub_item_attr_value(
-            self, toolchain, 'get_bin_version', lambda p: (1, 0, 0))
+            self, toolchain, 'get_bin_version', lambda p, kw: (1, 0, 0))
 
     def test_compile_plugin_base(self):
         working_dir = utils.mkdtemp(self)

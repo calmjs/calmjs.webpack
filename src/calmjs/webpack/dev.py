@@ -15,6 +15,7 @@ from os.path import dirname
 from os.path import join
 from os.path import exists
 from os.path import normpath
+from os.path import pathsep
 
 from calmjs.exc import ToolchainAbort
 from calmjs.cli import get_bin_version
@@ -56,6 +57,7 @@ from calmjs.webpack.base import DEFAULT_WEBPACK_DEVTOOL
 from calmjs.webpack.base import DEFAULT_CALMJS_EXPORT_NAME
 from calmjs.webpack.base import DEFAULT_BOOTSTRAP_EXPORT_CONFIG
 from calmjs.webpack.base import WebpackModuleLoaderRegistryKey
+from calmjs.webpack.env import webpack_env
 from calmjs.webpack.interrogation import probe_calmjs_webpack_module_names
 from calmjs.webpack.loaderplugin import normalize_and_register_webpackloaders
 from calmjs.webpack.loaderplugin import update_spec_webpack_loaders_modules
@@ -425,7 +427,12 @@ def karma_webpack(spec, toolchain=None):
             fake_spec[toolchain.webpack_bin_key] = spec[
                 toolchain.webpack_bin_key]
         config['webpack']['__webpack_target__'] = get_bin_version(
-            toolchain.prepare_binary(fake_spec))
+            toolchain.prepare_binary(fake_spec), kw={
+                'env': webpack_env(pathsep.join(
+                    toolchain.find_node_modules_basedir())
+                ),
+            }
+        )
 
     test_files = _generate_test_files(toolchain, spec)
     _apply_coverage(toolchain, spec)
