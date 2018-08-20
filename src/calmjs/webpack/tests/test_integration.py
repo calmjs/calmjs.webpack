@@ -152,21 +152,22 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         utils.rmtree(cls._cls_tmpdir)
 
     def setUp(self):
-        # Set up the transpiler using env_path assigned in setUpClass,
-        # which installed webpack to ensure the tests will find this.
-        cli.default_toolchain.env_path = self._env_path
-        self._dt_node_path, cli.default_toolchain.node_path = (
-            cli.default_toolchain.node_path, join(
+        # Set up the toolchain using env_path assigned in setUpClass,
+        # which contains the webpack installed (or made available) for
+        # this suite of integration tests.  This is done such that the
+        # node_modules may live in a different subdirectory from the
+        # generated test data for each of the test cases.
+
+        utils.stub_item_attr_value(
+            self, cli.default_toolchain, 'env_path', self._env_path)
+        utils.stub_item_attr_value(
+            self, cli.default_toolchain, 'node_path', join(
                 self._env_root, 'node_modules'))
 
     def tearDown(self):
         # remove registries that got polluted with test data
         from calmjs.registry import _inst as root_registry
         root_registry.records.pop('calmjs.artifacts', None)
-        # As the manipulation is done, should set this back to its
-        # default state.
-        cli.default_toolchain.env_path = None
-        cli.default_toolchain.env_path = self._dt_node_path
 
     # helper to set up "fake_modules" as a mock to "node_modules"
     def setup_runtime_main_env(self):
