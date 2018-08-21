@@ -130,6 +130,20 @@ that package is not declared as a direct dependency, as not all use
 cases will require the availability of that package.  Please refer to
 installation section for details.
 
+Supported webpack versions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As webpack is a very active project, multiple major versions have been
+released since the initial development and release of |calmjs.webpack|.
+Currently, |calmjs.webpack| is known to support webpack-2 version 2.6 or
+greater, webpack-3 and webpack-4.  While webpack@2.7.0 is declared for
+this version of |calmjs.webpack|, downstream packages may declare later
+versions but it is recommended that the |calmjs.webpack| test suite be
+executed in full to verify that the integration tests pass for the given
+version in the environment.  Detailed instructions on the execution of
+the integration tests for |calmjs.webpack| is covered in the `Testing
+the installation`_ section.
+
 
 Installation
 ------------
@@ -269,7 +283,13 @@ shells this may be executed instead from within that directory:
 
     $ CALMJS_TEST_ENV=. python -m unittest calmjs.webpack.tests.make_suite
 
-Do note that if the |calmjs.dev| package is unavailable, a number of
+As this particular form of invocation make direct use of whatever the
+current Node.js environment found, this may be used to test for
+compatibility with other versions of webpack intended for use with the
+current environment (e.g. if a specific package declared specific later
+versions of webpack for their artifact build process.).
+
+Also note that if the |calmjs.dev| package is unavailable, a number of
 tests relating to integration with |karma| will be skipped.  To avoid
 this, either install |calmjs.dev| manually, or install |calmjs.webpack|
 using its extras dependencies declaration like so:
@@ -391,7 +411,7 @@ file.  An example run:
 
     $ calmjs webpack example
     Hash: 1dbcdb61e3afb4d2a383
-    Version: webpack 2.6.1
+    Version: webpack 2.7.0
     Time: 82ms
          Asset     Size  Chunks             Chunk Names
     example.js  4.49 kB       0  [emitted]  main
@@ -455,7 +475,7 @@ The resulting calmjs run may then end up looking something like this:
 
     $ calmjs webpack example
     Hash: fa76455e8abdb96273aa
-    Version: webpack 2.6.1
+    Version: webpack 2.7.0
     Time: 332ms
          Asset    Size  Chunks                    Chunk Names
     example.js  326 kB       0  [emitted]  [big]  main
@@ -792,7 +812,7 @@ the metadata (egg-info) directory was then built into the wheel.
     using loaderplugin registry 'calmjs.webpack.loaderplugins'
     using calmjs bootstrap; webpack.output.library set to '__calmjs__'
     ...
-    Version: webpack 2.6.1
+    Version: webpack 2.7.0
     Time: 240ms
                  Asset    Size  Chunks                    Chunk Names
     example.webpack.js   10 kB       0  [emitted]  [big]  main
