@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.2.0 (2018-??-??)
+1.2.0 (2018-08-22)
 ------------------
 
 - Various changes to enable the support of webpack 3 and 4.  [
