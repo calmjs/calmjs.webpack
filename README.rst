@@ -8,12 +8,12 @@ sourced from |npm|_ or similar package repositories, for the declaration
 and production of prebuilt JavaScript artifacts with |webpack| in a
 manner that allow reuse and extension by Python packages' dependants.
 
-.. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=1.2.x
+.. image:: https://travis-ci.org/calmjs/calmjs.webpack.svg?branch=1.2.0
     :target: https://travis-ci.org/calmjs/calmjs.webpack
-.. image:: https://ci.appveyor.com/api/projects/status/327fghy5uhnhplf5/branch/1.2.x?svg=true
-    :target: https://ci.appveyor.com/project/metatoaster/calmjs-webpack/branch/1.2.x
-.. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=1.2.x
-    :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=1.2.x
+.. image:: https://ci.appveyor.com/api/projects/status/327fghy5uhnhplf5/branch/1.2.0?svg=true
+    :target: https://ci.appveyor.com/project/metatoaster/calmjs-webpack/branch/1.2.0
+.. image:: https://coveralls.io/repos/github/calmjs/calmjs.webpack/badge.svg?branch=1.2.0
+    :target: https://coveralls.io/github/calmjs/calmjs.webpack?branch=1.2.0
 
 .. |AMD| replace:: AMD (Asynchronous Module Definition)
 .. |calmjs| replace:: ``calmjs``
