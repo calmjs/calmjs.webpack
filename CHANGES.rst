@@ -1,6 +1,14 @@
 Changelog
 =========
 
+1.1.2 (????-??-??)
+------------------
+
+- Provide the ability to interrogate artifacts that simply have their
+  function scope variable names mangled.  [
+  `#8 <https://github.com/calmjs/calmjs.webpack/issues/8>`_
+  ]
+
 1.1.1 (2018-08-18)
 ------------------
 
