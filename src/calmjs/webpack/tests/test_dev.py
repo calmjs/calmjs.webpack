@@ -264,6 +264,16 @@ class KarmaTestcase(unittest.TestCase):
             "only aliasing modpath 'example/tests/data.json' to target "
             "'data.json'", s.getvalue())
 
+    def setup_fake_webpack(self):
+        # create the required mocks and stubs so that toolchain finds
+        # a webpack version
+        stub_item_attr_value(
+            self, dev, 'get_bin_version', lambda p, kw: (1, 0, 0))
+        webpack = join(mkdtemp(self), 'webpack')
+        with open(webpack, 'w'):
+            pass
+        return webpack
+
     def test_karma_setup_empty(self):
         spec = Spec()
         with pretty_logging(stream=StringIO()) as s:
@@ -280,6 +290,7 @@ class KarmaTestcase(unittest.TestCase):
         spec = Spec(
             karma_config=karma_config,
             build_dir=mkdtemp(self),
+            toolchain_bin_path=self.setup_fake_webpack(),
         )
 
         with pretty_logging(stream=StringIO()) as s:
@@ -299,6 +310,7 @@ class KarmaTestcase(unittest.TestCase):
                     '/src/some/package/tests/test_module.js'
             },
             webpack_single_test_bundle=False,
+            toolchain_bin_path=self.setup_fake_webpack(),
         )
 
         with pretty_logging(stream=StringIO()) as s:
@@ -320,13 +332,14 @@ class KarmaTestcase(unittest.TestCase):
                     '/src/some/package/tests/test_module.js'
             },
             webpack_single_test_bundle=True,
+            toolchain_bin_path=self.setup_fake_webpack(),
         )
 
         karma_webpack(spec)
 
         unified_module = join(build_dir, '__calmjs_tests__.js')
         self.assertEqual(spec['karma_config']['files'], [unified_module])
-        self.assertEqual(karma_config['webpack']['resolve']['alias'][
+        self.assertEqual(spec['karma_config']['webpack']['resolve']['alias'][
             'some/package/tests/test_module'
         ], '/src/some/package/tests/test_module.js')
 
@@ -351,6 +364,7 @@ class KarmaTestcase(unittest.TestCase):
                     '/src/some/package/tests/test_module.js'
             },
             artifact_paths=[fake_artifact],
+            toolchain_bin_path=self.setup_fake_webpack(),
         )
 
         with pretty_logging(stream=StringIO()) as s:

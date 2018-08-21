@@ -5,6 +5,7 @@ import unittest
 import codecs
 import json
 import os
+import re
 import sys
 from os.path import exists
 from os.path import join
@@ -14,6 +15,7 @@ from textwrap import dedent
 from calmjs.toolchain import Spec
 from calmjs.npm import Driver
 from calmjs.cli import node
+from calmjs.cli import get_bin_version_str
 from calmjs import runtime
 from calmjs.utils import pretty_logging
 from calmjs.registry import get as get_registry
@@ -57,7 +59,9 @@ def run_webpack(script, *artifacts):
     # environment within a browser.
 
     stream = StringIO()
+    # webpack 4 used window as the argument, so match it.
     stream.write("var window = new (function(require, exports, module) {\n")
+    stream.write("    var window = this;\n")
     for artifact in artifacts:
         with codecs.open(artifact, encoding='utf8') as fd:
             stream.write(fd.read())
@@ -148,21 +152,22 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         utils.rmtree(cls._cls_tmpdir)
 
     def setUp(self):
-        # Set up the transpiler using env_path assigned in setUpClass,
-        # which installed webpack to ensure the tests will find this.
-        cli.default_toolchain.env_path = self._env_path
-        self._dt_node_path, cli.default_toolchain.node_path = (
-            cli.default_toolchain.node_path, join(
+        # Set up the toolchain using env_path assigned in setUpClass,
+        # which contains the webpack installed (or made available) for
+        # this suite of integration tests.  This is done such that the
+        # node_modules may live in a different subdirectory from the
+        # generated test data for each of the test cases.
+
+        utils.stub_item_attr_value(
+            self, cli.default_toolchain, 'env_path', self._env_path)
+        utils.stub_item_attr_value(
+            self, cli.default_toolchain, 'node_path', join(
                 self._env_root, 'node_modules'))
 
     def tearDown(self):
         # remove registries that got polluted with test data
         from calmjs.registry import _inst as root_registry
         root_registry.records.pop('calmjs.artifacts', None)
-        # As the manipulation is done, should set this back to its
-        # default state.
-        cli.default_toolchain.env_path = None
-        cli.default_toolchain.env_path = self._dt_node_path
 
     # helper to set up "fake_modules" as a mock to "node_modules"
     def setup_runtime_main_env(self):
@@ -217,6 +222,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # got exported due to how webpack collapse the generation in the
         # umd template for maximum confusion.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s;
         console.log(Object.keys(artifact).length);
         """, export_target)
@@ -292,6 +298,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # the standard require/commonjs loading should work, as it
         # should not have any externals.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var main = artifact.modules["example/package/main"];
         main.main();
@@ -331,6 +338,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var bare = artifact.modules["example/package/bare"];
         console.log(bare.clean(1));
@@ -376,6 +384,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var raw = artifact.modules["text!example/loader/single.json"];
         console.log(raw);
@@ -426,6 +435,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # verify that the bundle works with node, with the usage of the
         # bundle through the __calmjs__ entry module
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s
         var raw = artifact.modules["text!example/loader/single.json"];
         console.log(raw);
@@ -480,8 +490,17 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # up with the prebuilt ones stored in examples at the source
         # tree level.
         rv = ReprWalker()
+        webpack = toolchain.WebpackToolchain(
+            node_path=join(self._env_root, 'node_modules'))
+        version = re.search(r'([0-9]+\.[0-9]+)', get_bin_version_str(
+            webpack.which_with_node_modules())).groups()[0]
         for key in keys:
-            with codecs.open(prebuilts[key], encoding='utf8') as fd:
+            base, target = prebuilts[key]
+            prebuilt_path = join(base, version, target)
+            if not exists(prebuilt_path):  # pragma: no cover
+                raise unittest.SkipTest(
+                    'prebuilt %s missing; skipping' % prebuilt_path)
+            with codecs.open(prebuilt_path, encoding='utf8') as fd:
                 prebuilt = rv.walk(parse(fd.read()))
                 generated = rv.walk(parse(contents[key]))
                 self.assertEqual(prebuilt, generated)
@@ -492,6 +511,10 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # node_modules that contain the webpack package not associated
         # with the toolchain such that webpack cannot locate itself
         # under certain circumstances.
+        # this test mostly serves as a documentation on how unexpected
+        # interactions between different paths can manifest in a failure
+        # to have webpack that was executed end up unable to locate
+        # itself.
         bundle_dir = utils.mkdtemp(self)
         build_dir = utils.mkdtemp(self)
         transpile_sourcepath = {
@@ -513,7 +536,12 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
 
         # ensure that the conditions for which the failure, i.e. no
         # explicit NODE_PATH and that the working_dir is empty (so that
-        # the NODE_PATH will not be generated by the WebpackToolchain).
+        # the NODE_PATH will not be generated by the WebpackToolchain),
+        # and where the webpack binary was located.
+
+        # this ensures the webpack is located by defining an env_path
+        webpack.env_path = join(webpack.node_path, '.bin')
+        # and then remove the original node_path.
         webpack.node_path = None
         webpack.working_dir = utils.mkdtemp(self)
         with pretty_logging(stream=StringIO()) as s:
@@ -521,6 +549,11 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
                 webpack(spec)
             except exc.WebpackExitError:  # pragma: no cover
                 # This may more may not fail, we don't care.
+                # If it doesn't fail probably because there exists some
+                # node_modules in the current directory or one of its
+                # (grand)parents or the environment that contains a
+                # working copy of webpack - whether it matches the
+                # expected version is a whole other matter.
                 pass
 
         log = s.getvalue()
@@ -584,6 +617,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # This bundle will not actually run; for the actual testing, the
         # calmjs.dev integration tests provide it.
         stdout, stderr = run_node("""
+        var window = {};
         var artifact = %s;
         """, export_target)
         self.assertNotEqual(stderr, '')
@@ -692,6 +726,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # The execution should export all the modules to just that
         # target, with modules simply be available at modules.
         stdout, stderr = run_node("""
+        var window = {};
         var service = %s
         var rpclib = service.modules["service/rpc/lib"];
         console.log(rpclib.Library);
@@ -870,6 +905,9 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         # when explicit bundling is none, with how this package is set
         # up without node_modules, webpack will simply treat the import
         # it cannot locate as an error.
+        # however, if webpack _does_ locate the real underscore package
+        # in some node_modules directory nested somewhere above the
+        # working directory, this will in fact succeed.
         with self.assertRaises(SystemExit) as e:
             runtime.main([
                 'webpack', 'widget',
@@ -1352,7 +1390,7 @@ class ToolchainIntegrationTestCase(unittest.TestCase):
         for k in keys:
             self.assertEqual(sorted(answer), sorted(f(parse(results[k]))))
 
-    def test_prebuilts(self):
+    def test_contents(self):
         keys, names, prebuilts, contents = generate_example_bundles(self)
 
         self.assertPrebuilts([

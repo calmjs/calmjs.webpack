@@ -1,6 +1,27 @@
 Changelog
 =========
 
+1.2.0 (2018-??-??)
+------------------
+
+- Various changes to enable the support of webpack 3 and 4.  [
+  `#6 <https://github.com/calmjs/calmjs.webpack/issues/6>`_
+  ]
+
+  - Substantial modification to the generation of webpack configuration
+    scripts, as they are constructed through helpers that construct an
+    abstract syntax tree through ``calmjs.parse``.  This is done so that
+    webpack version specific incompatibilities can be added/removed into
+    the generated script as executable Node.js code.
+  - A kill plugin is provided to karma by default; if webpack fails to
+    build, the karma process will halt, as the ``singleRun: true`` flag
+    no longer does the job for webpack.
+
+- Provide the ability to interrogate artifacts that simply have their
+  function scope variable names mangled.  [
+  `#8 <https://github.com/calmjs/calmjs.webpack/issues/8>`_
+  ]
+
 1.1.1 (2018-08-18)
 ------------------
 

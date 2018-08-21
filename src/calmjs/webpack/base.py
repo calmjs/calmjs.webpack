@@ -18,6 +18,8 @@ CALMJS_WEBPACK_MODNAME_LOADER_MAP = 'calmjs_webpack_modname_loader_map'
 
 # The spec key for storing the base webpack configuration.
 WEBPACK_CONFIG = 'webpack_config'
+# The spec key for storing the webpack.devtool
+WEBPACK_DEVTOOL = 'webpack_devtool'
 # The key for the webpack.output.library
 WEBPACK_OUTPUT_LIBRARY = 'webpack_output_library'
 # The key for generating a combined single test index.
@@ -30,6 +32,8 @@ WEBPACK_ENTRY_POINT = 'webpack_entry_point'
 # For webpack loaderplugin integration - this is the spec key - note that
 # this is NOT for webpack plugins which are a separate type of things
 WEBPACK_LOADERPLUGINS = 'webpack_loaderplugins'
+# webpack mode; determines development/production settings.
+WEBPACK_MODE = 'webpack_mode'
 # for the module.rules section; used by loaderplugin module
 WEBPACK_MODULE_RULES = 'webpack_module_rules'
 # for the configuration in webpack config
@@ -76,6 +80,11 @@ DEFAULT_BOOTSTRAP_EXPORT_CONFIG = {
     "root": DEFAULT_BOOTSTRAP_EXPORT,
     "amd": DEFAULT_BOOTSTRAP_EXPORT,
 }
+
+DEFAULT_WEBPACK_MODES = ('none', 'development', 'production')
+# default webpack mode is production (and a warning) if unset
+DEFAULT_WEBPACK_MODE = DEFAULT_WEBPACK_MODES[0]
+DEFAULT_WEBPACK_DEVTOOL = False
 
 
 # due to webpack specific requirements, a special type for the key is
