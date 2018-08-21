@@ -56,6 +56,14 @@ class WebpackTestCase(unittest.TestCase):
         self.assertEqual([], interrogation.probe_calmjs_webpack_module_names(
             _empty))
 
+    def test_mangled_calmjs_webpack_module_names(self):
+        mangled = parse(read(join(_root, 'example_package.mangled.js')))
+        self.assertEqual([
+            'example/package/bad',
+            'example/package/main',
+            'example/package/math',
+        ], interrogation.probe_calmjs_webpack_module_names(mangled))
+
     def test_probe_failure(self):
         # simply TypeError is raised
         with self.assertRaises(TypeError):

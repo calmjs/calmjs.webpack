@@ -5,6 +5,8 @@ that useful information can be extracted from webpack artifacts or input
 source files.
 """
 
+import logging
+
 from calmjs.parse.asttypes import Assign
 from calmjs.parse.asttypes import Array
 from calmjs.parse.asttypes import BracketAccessor
@@ -20,6 +22,7 @@ from calmjs.parse.asttypes import String
 from calmjs.parse.walkers import Walker
 
 walker = Walker()
+logger = logging.getLogger(__name__)
 
 
 def probe_calmjs_webpack_module_names(node):
@@ -30,14 +33,22 @@ def probe_calmjs_webpack_module_names(node):
 
     # first, locate the index number of the entry point (calmjs export
     # module), depending on whether or not the webpack is minified.
-    if factory_name == 'factory':
-        # non-minified.
+    try:
+        # attempt to verify that this is a factory node
         verify_factory(webpack_wrapper, factory_name)
-        entry_index = extract_entry_index(node)
+    except TypeError:
+        # provide a fallback to check for minified/uglified version
+        if factory_name != 'factory':
+            verify_factory_min(webpack_wrapper, factory_name)
+            entry_index = extract_entry_index_min(node)
+        else:
+            raise
     else:
-        # minified.
-        verify_factory_min(webpack_wrapper, factory_name)
-        entry_index = extract_entry_index_min(node)
+        verify_factory(webpack_wrapper, factory_name)
+        if factory_name != 'factory':
+            entry_index = extract_entry_index_mangled(node)
+        else:
+            entry_index = extract_entry_index(node)
 
     # now that we have the entry point, extract the index of the module
     # loader module from that
@@ -65,6 +76,7 @@ def verify_factory(node, factory_name):
 
 
 def extract_entry_index(node):
+    logger.debug('probing module names from original artifact')
     return int(walker.extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, FunctionCall) and
@@ -72,6 +84,17 @@ def extract_entry_index(node):
         isinstance(n.expr.args.items[0], Assign) and
         isinstance(n.expr.args.items[0].right, Number) and
         n.expr.identifier.value == '__webpack_require__'
+    )).expr.args.items[0].right.value)
+
+
+def extract_entry_index_mangled(node):
+    logger.debug('probing module names from mangled artifact')
+    return int(walker.extract(node, lambda n: (
+        isinstance(n, Return) and
+        isinstance(n.expr, FunctionCall) and
+        n.expr.args.items and
+        isinstance(n.expr.args.items[0], Assign) and
+        isinstance(n.expr.args.items[0].right, Number)
     )).expr.args.items[0].right.value)
 
 
@@ -85,6 +108,7 @@ def verify_factory_min(node, factory_name):
 
 
 def extract_entry_index_min(node):
+    logger.debug('probing module names from uglified artifact')
     return int(walker.extract(node, lambda n: (
         isinstance(n, Return) and
         isinstance(n.expr, Comma) and
