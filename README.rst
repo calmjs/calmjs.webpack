@@ -159,7 +159,7 @@ new versions of dependencies rejecting older versions of Python.
 To install |calmjs.webpack| into a given Python environment, it may be
 installed directly from PyPI with the following command:
 
-.. code:: sh
+.. code:: console
 
     $ pip install calmjs.webpack
 
@@ -177,7 +177,7 @@ To establish a development/build environment for a Python package with
 the support for |webpack| through |calmjs.webpack| in the current
 working directory, the following command may be executed:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs npm --install calmjs.webpack
 
@@ -191,7 +191,7 @@ Python package that have declared |calmjs.webpack| as a dependency
 installed using the following command (assuming the package is named
 ``example.package``:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs npm --install example.package
 
@@ -199,7 +199,7 @@ If the dependency on |calmjs.webpack| was declared as an extras_require
 dependency under a section named |webpack|, the command will then become
 the following:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs npm --install example.package[webpack]
 
@@ -220,7 +220,7 @@ Development is still ongoing with |calmjs.webpack|, for the latest
 features and bug fixes, the development version can be installed through
 git like so:
 
-.. code:: sh
+.. code:: console
 
     $ pip install calmjs
     $ pip install git+https://github.com/calmjs/calmjs.webpack.git#egg=calmjs.webpack
@@ -270,7 +270,7 @@ Testing the installation
 Finally, to verify for the successful installation of |calmjs.webpack|,
 the included tests may be executed through this command:
 
-.. code:: sh
+.. code:: console
 
     $ python -m unittest calmjs.webpack.tests.make_suite
 
@@ -279,7 +279,7 @@ current directory was followed, the current directory may be specified
 as the ``CALMJS_TEST_ENV`` environment variable.  Under POSIX compatible
 shells this may be executed instead from within that directory:
 
-.. code:: sh
+.. code:: console
 
     $ CALMJS_TEST_ENV=. python -m unittest calmjs.webpack.tests.make_suite
 
@@ -294,7 +294,7 @@ tests relating to integration with |karma| will be skipped.  To avoid
 this, either install |calmjs.dev| manually, or install |calmjs.webpack|
 using its extras dependencies declaration like so:
 
-.. code:: sh
+.. code:: console
 
     $ pip install calmjs.webpack[dev]
 
@@ -307,7 +307,7 @@ exposed through the Calmjs module registry system that are already
 installed into the current environment, simply execute the following
 command:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs webpack example.package
 
@@ -407,7 +407,7 @@ would extract all the relevant sources, create a temporary build
 directory, generate the build manifest and invoke ``webpack`` on that
 file.  An example run:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs webpack example
     Hash: 1dbcdb61e3afb4d2a383
@@ -471,7 +471,7 @@ locate them.
 
 The resulting calmjs run may then end up looking something like this:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs webpack example
     Hash: fa76455e8abdb96273aa
@@ -504,7 +504,7 @@ use of the |karma| runtime provided by the ``calmjs.dev`` package, the
 tests may be executed as part of the webpack artifact build process.
 The command is simply this:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs karma webpack example
 
@@ -732,7 +732,7 @@ provided by the ``calmjs.dev`` package.  Given a finalized
 ``example`` package, the artifact may be tested with the tests provided
 by the ``example`` package using the following command:
 
-.. code:: sh
+.. code:: console
 
     $ calmjs karma run \
         -t calmjs.webpack \
