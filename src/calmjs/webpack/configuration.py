@@ -106,7 +106,7 @@ module.exports = function(config) {
 }
 """
 
-_WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = """
+_WEBPACK_4_DISABLE_JSON__MODULE_RULES_ = r"""
 [{
     test: /\.(json|html)/,
     type: "javascript/auto",
