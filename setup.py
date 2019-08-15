@@ -34,7 +34,8 @@ Topic :: Utilities
 package_json = {
     "dependencies": {},
     "devDependencies": {
-        "webpack": "~2.7.0",
+        "webpack": "~4.16.0",
+        "webpack-cli": "~3.0.0",
         "karma-webpack": "~3.0.0",
         "sourcemap-istanbul-instrumenter-loader": "~0.2.0",
     }
@@ -69,6 +70,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
+        'calmjs.parse>=1.2.0',
         'calmjs>=3.3.1',
     ],
     extras_require={

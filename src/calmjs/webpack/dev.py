@@ -412,7 +412,7 @@ def karma_webpack(spec, toolchain=None):
             "mode": spec.get(WEBPACK_MODE, DEFAULT_WEBPACK_MODE),
             "devtool": spec.get(WEBPACK_DEVTOOL, DEFAULT_WEBPACK_DEVTOOL),
             "output": {
-                "filename": "dummy.webpack.js",
+                "filename": "__calmjs_karma__.webpack.js",
                 "library": "__calmjs_karma__",
                 "libraryTarget": "umd",
                 "path": spec[BUILD_DIR],
