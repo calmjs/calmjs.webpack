@@ -196,7 +196,7 @@ class WebpackToolchain(ES5Toolchain):
         self.binary = self.webpack_bin
 
     def setup_transpiler(self):
-        self.parser = parse
+        self.parser = partial(parse, with_comments=True)
         self.transpiler = convert_dynamic_require_unparser()
 
     def build_compile_entries(self):
